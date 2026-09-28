@@ -87,7 +87,7 @@ extension NSImage {
                 image.draw(in: rect)
                 NSGraphicsContext.restoreGraphicsState()
             } else if let initial {
-                NSColor.controlAccentColor.setFill()
+                Theme.accentNSColor.setFill()
                 circle.fill()
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: size * 0.45, weight: .semibold),

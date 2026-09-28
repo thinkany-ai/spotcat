@@ -149,7 +149,7 @@ struct AvatarView: View {
                     .font(.system(size: size * 0.42, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.accentColor)
+                    .background(Theme.accent)
             } else {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()
@@ -246,24 +246,40 @@ struct AboutSettingsView: View {
             }
 
             Section(L10n.t("about.folders")) {
-                folderRow(L10n.t("about.extensionsFolder"), url: ExtensionManager.userExtensionsDirectory)
-                folderRow(L10n.t("about.dataFolder"), url: SettingsStore.dataDirectory)
+                folderRow(L10n.t("about.extensionsFolder"), url: ExtensionManager.userExtensionsDirectory,
+                          symbol: "puzzlepiece.extension.fill", tint: Color(nsColor: .systemIndigo))
+                folderRow(L10n.t("about.dataFolder"), url: SettingsStore.dataDirectory,
+                          symbol: "folder.fill", tint: Color(nsColor: .systemBlue))
             }
         }
         .formStyle(.grouped)
     }
 
-    private func folderRow(_ title: String, url: URL) -> some View {
-        LabeledContent {
-            Button(L10n.t("about.showInFinder")) {
+    private func folderRow(_ title: String, url: URL, symbol: String, tint: Color) -> some View {
+        HStack(spacing: 12) {
+            SettingsIconTile(symbol: symbol, tint: tint, size: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 12)
+            Button {
                 try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
                 NSWorkspace.shared.activateFileViewerSelecting([url])
+            } label: {
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.system(size: 15))
             }
-        } label: {
-            Text(title)
-            Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                .textSelection(.enabled)
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help(L10n.t("about.showInFinder"))
         }
+        .padding(.vertical, 4)
     }
 }
 

@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Spotcat Dev：与正式版相同的科技蓝图标，底部加 DEV 标签以示区分；猫耳轮廓 + 「>」指令符（负空间），科技蓝浅渐变底 -->
+  <!-- Spotcat Dev：与正式版相同的图标，底部加 DEV 标签以示区分；猫耳轮廓 + 「>」指令符（负空间），橙色渐变底 -->
   <defs>
     <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <rect width="100" height="100" fill="#fff"/>
       <polyline points="40,20 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
     </mask>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#63B0FF"/>
-      <stop offset="0.55" stop-color="#3383FF"/>
-      <stop offset="1" stop-color="#1F6BFF"/>
+      <stop offset="0" stop-color="#FFB25C"/>
+      <stop offset="0.55" stop-color="#FF8A2A"/>
+      <stop offset="1" stop-color="#FF6F14"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.22"/>
@@ -20,6 +20,6 @@
       <path d="M9 17 L45 40 L91 17 L91 58 C91 74 80 84 64 84 L36 84 C20 84 9 74 9 58 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/>
     </g>
   </g>
-  <rect x="382" y="716" width="260" height="104" rx="52" fill="#FFB020"/>
-  <text x="512" y="791" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="68" font-weight="700" letter-spacing="4" fill="#121214">DEV</text>
+  <rect x="382" y="716" width="260" height="104" rx="52" fill="#1C1C1E"/>
+  <text x="512" y="791" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="68" font-weight="700" letter-spacing="4" fill="#FFFFFF">DEV</text>
 </svg>

@@ -12,7 +12,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return "puzzlepiece.extension.fill"
         case .quicklinks: return "link"
         case .profile: return "person.crop.circle.fill"
-        case .ai: return "sparkles"
+        case .ai: return "brain.head.profile"
         case .about: return "info.circle.fill"
         }
     }
@@ -24,7 +24,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return Color(nsColor: .systemIndigo)
         case .quicklinks: return Color(nsColor: .systemBlue)
         case .profile: return Color(nsColor: .systemOrange)
-        case .ai: return Color(nsColor: .systemPurple)
+        case .ai: return Color(nsColor: .systemTeal)
         case .about: return Color(nsColor: .systemGray)
         }
     }
@@ -114,6 +114,8 @@ struct SettingsRootView: View {
         }
         .frame(width: 800, height: 580)
         .ignoresSafeArea()
+        // 开关、按钮等控件使用主题色
+        .tint(Theme.accent)
         // 语言切换后整棵树重建，所有文案随之刷新
         .id(store.language)
     }
@@ -169,7 +171,7 @@ private struct SidebarRow: View {
             .frame(height: 32)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .fill(isSelected ? Theme.accent : Color.clear)
             )
             .contentShape(Rectangle())
         }
@@ -202,7 +204,7 @@ private struct ProfileCard: View {
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 9)
-                    .fill(isSelected ? Color.accentColor : Color.primary.opacity(0.05))
+                    .fill(isSelected ? Theme.accent : Color.primary.opacity(0.05))
             )
             .contentShape(Rectangle())
         }

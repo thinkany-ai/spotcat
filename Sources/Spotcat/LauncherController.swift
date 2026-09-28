@@ -616,7 +616,7 @@ final class LauncherController: NSObject {
         case .feature(let feature, _):
             image = extensions.owner(of: feature).map { ExtensionIcon.image(for: $0, feature: feature.feature) } ?? NSImage()
         case .chat:
-            image = ExtensionIcon.symbolTile("sparkles", color: .systemPurple)
+            image = ExtensionIcon.symbolTile("sparkles", color: .systemTeal)
         case .command(let command):
             image = ExtensionIcon.symbolTile(command.icon.symbol, color: command.icon.color)
         case .file(let file):

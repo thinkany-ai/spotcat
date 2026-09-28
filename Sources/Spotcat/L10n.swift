@@ -207,7 +207,7 @@ enum L10n {
         "about.description": "macOS 启动器：搜索应用、运行扩展、与 AI 对话。",
         "about.version": "版本 %@（%@）",
         "about.folders": "文件夹",
-        "about.extensionsFolder": "扩展目录",
+        "about.extensionsFolder": "第三方扩展目录",
         "about.dataFolder": "数据目录",
         "about.showInFinder": "在访达中显示",
 
@@ -344,7 +344,7 @@ enum L10n {
         "about.description": "A launcher for macOS: search apps, run extensions and chat with AI.",
         "about.version": "Version %@ (%@)",
         "about.folders": "Folders",
-        "about.extensionsFolder": "Extensions",
+        "about.extensionsFolder": "Third-party extensions",
         "about.dataFolder": "Data",
         "about.showInFinder": "Show in Finder",
 
