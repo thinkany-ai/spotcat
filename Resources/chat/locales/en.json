@@ -1,0 +1,20 @@
+{
+  "back": "Back",
+  "newChat": "New Chat",
+  "placeholder": "Ask anything…  ↩ to send · ⇧↩ for new line",
+  "emptyTitle": "How can I help?",
+  "emptyWithContext": "Ask a follow-up about the context above",
+  "notConfigured": "AI is not configured",
+  "notConfiguredHint": "Set the provider, API key and model in Spotcat Settings.",
+  "openSettings": "Open Settings",
+  "context": "Context",
+  "contextFrom": "From {source}",
+  "copy": "Copy",
+  "copied": "Copied",
+  "retry": "Retry",
+  "send": "Send",
+  "stop": "Stop",
+  "stopped": "Stopped",
+  "error": "Error: {message}",
+  "emptyTitleNamed": "How can I help, {name}?"
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chat</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="back" data-i18n-title="back"></button>
+    <div class="titles">
+      <div class="title" id="title"></div>
+      <div class="subtitle" id="subtitle"></div>
+    </div>
+    <button class="icon-btn" id="new-chat" data-i18n-title="newChat"></button>
+  </header>
+
+  <main id="scroller">
+    <section id="context" class="context" hidden>
+      <button class="context-head" id="context-toggle">
+        <span class="context-icon"></span>
+        <span id="context-label"></span>
+        <span class="count" id="context-count"></span>
+        <span class="chevron"></span>
+      </button>
+      <div class="context-body" id="context-body" hidden></div>
+    </section>
+
+    <div id="messages"></div>
+
+    <div id="empty" class="empty">
+      <div class="spark"></div>
+      <h2 id="empty-title"></h2>
+      <div id="setup" hidden>
+        <p><b data-i18n="notConfigured"></b><br><span data-i18n="notConfiguredHint"></span></p>
+        <button class="primary" id="open-settings" data-i18n="openSettings"></button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="composer">
+    <textarea id="input" rows="1" data-i18n-placeholder="placeholder" spellcheck="false"></textarea>
+    <button class="send" id="send" data-i18n-title="send"></button>
+  </footer>
+
+  <script src="markdown.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

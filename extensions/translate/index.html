@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Translate</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="main">
+    <section class="card input-card">
+      <textarea id="input" data-i18n-placeholder="inputPlaceholder" spellcheck="false" autofocus></textarea>
+      <div class="actions">
+        <button class="icon-btn" id="speak-input" data-i18n-title="speak"></button>
+        <button class="icon-btn" id="copy-input" data-i18n-title="copy"></button>
+        <span class="chip" id="detected" hidden></span>
+      </div>
+    </section>
+
+    <section class="card lang-bar">
+      <label class="select"><select id="source"></select></label>
+      <button class="icon-btn" id="swap" data-i18n-title="swap"></button>
+      <label class="select"><select id="target"></select></label>
+      <button class="icon-btn settings-btn" id="open-settings" data-i18n-title="settings"></button>
+    </section>
+
+    <div id="results"></div>
+  </main>
+
+  <section id="settings" class="settings" hidden>
+    <header>
+      <h2 data-i18n="settingsTitle"></h2>
+      <button class="icon-btn" id="close-settings" data-i18n-title="close"></button>
+    </header>
+
+    <h3 data-i18n="servicesSection"></h3>
+    <div id="service-toggles" class="card list"></div>
+
+    <h3 data-i18n="aiSection"></h3>
+    <p class="note"><span data-i18n="aiNote"></span> <a href="#" id="open-spotcat-settings" data-i18n="openSpotcatSettings"></a></p>
+    <p class="note"><span data-i18n="systemNote"></span> <a href="#" id="open-language-settings" data-i18n="openLanguageSettings"></a></p>
+
+    <footer><button class="primary" id="save-settings" data-i18n="save"></button></footer>
+  </section>
+
+  <script src="languages.js"></script>
+  <script src="services.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

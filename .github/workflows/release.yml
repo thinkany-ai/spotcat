@@ -1,0 +1,70 @@
+name: Release
+
+# 推送 v* 标签：构建通用二进制 → Developer ID 签名 → 公证 → staple → 上传到 GitHub Release 草稿。
+# 发布步骤：修改 Resources/Info.plist 的 CFBundleShortVersionString，然后
+#   git tag v<版本> && git push origin v<版本>
+# 手动触发（workflow_dispatch）只构建并上传 Actions artifact，不创建 Release。
+#
+# 需要的 Secrets（见 scripts/setup-release-secrets.sh）：
+#   APPLE_CERTIFICATE（Developer ID Application .p12 的 base64）、APPLE_CERTIFICATE_PASSWORD、
+#   APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD（App 专用密码）、APPLE_TEAM_ID
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches app version
+        if: github.event_name == 'push'
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Info.plist version $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT_PATH"
+
+      - name: Build, sign, notarize
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release.sh ${{ github.event_name == 'push' && '--publish' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Spotcat-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

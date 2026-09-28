@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Spotcat：放大镜的镜片长出猫耳，镜片里是一双猫眼 —— Spotlight + cat -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E2A7A"/>
+      <stop offset="0.55" stop-color="#4C2DB8"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <!-- 聚光灯的光晕 -->
+    <radialGradient id="glow" cx="470" cy="470" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDE68A" stop-opacity="0.42"/>
+      <stop offset="0.45" stop-color="#C4B5FD" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#C4B5FD" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lens" cx="430" cy="420" r="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B2F8F"/>
+      <stop offset="1" stop-color="#1B1646"/>
+    </radialGradient>
+    <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FDE047"/>
+      <stop offset="1" stop-color="#A3E635"/>
+    </linearGradient>
+    <linearGradient id="white" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4E1FF"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#140F3A" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+  </defs>
+
+  <!-- 底板 -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  </g>
+  <g clip-path="url(#tile)">
+    <circle cx="470" cy="470" r="420" fill="url(#glow)"/>
+    <!-- 顶部高光 -->
+    <rect x="100" y="100" width="824" height="360" fill="url(#shine)"/>
+  </g>
+
+  <g filter="url(#soft)">
+    <!-- 手柄 -->
+    <line x1="640" y1="640" x2="790" y2="790" stroke="url(#white)" stroke-width="84" stroke-linecap="round"/>
+    <line x1="728" y1="728" x2="790" y2="790" stroke="#A78BFA" stroke-width="84" stroke-linecap="round"/>
+
+    <!-- 猫耳 -->
+    <path d="M284 362 L267 210 L414 262 Z" fill="url(#white)" stroke="url(#white)" stroke-width="28" stroke-linejoin="round"/>
+    <path d="M656 362 L673 210 L526 262 Z" fill="url(#white)" stroke="url(#white)" stroke-width="28" stroke-linejoin="round"/>
+
+    <!-- 镜片 = 猫头 -->
+    <circle cx="470" cy="470" r="215" fill="url(#lens)" stroke="url(#white)" stroke-width="58"/>
+  </g>
+
+  <!-- 内耳 -->
+  <path d="M295 310 L286 234 L360 260 Z" fill="#C4B5FD" stroke="#C4B5FD" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M645 310 L654 234 L580 260 Z" fill="#C4B5FD" stroke="#C4B5FD" stroke-width="14" stroke-linejoin="round"/>
+
+  <!-- 镜片反光 -->
+  <path d="M330 420 A150 150 0 0 1 430 318" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- 猫眼 -->
+  <ellipse cx="398" cy="478" rx="44" ry="54" fill="url(#eye)"/>
+  <ellipse cx="542" cy="478" rx="44" ry="54" fill="url(#eye)"/>
+  <ellipse cx="398" cy="480" rx="11" ry="40" fill="#1B1646"/>
+  <ellipse cx="542" cy="480" rx="11" ry="40" fill="#1B1646"/>
+  <circle cx="412" cy="458" r="9" fill="#FFFFFF"/>
+  <circle cx="556" cy="458" r="9" fill="#FFFFFF"/>
+
+  <!-- 鼻子和嘴 -->
+  <path d="M452 552 L488 552 L470 572 Z" fill="#F9A8D4" stroke="#F9A8D4" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M470 574 Q458 596 438 588 M470 574 Q482 596 502 588" fill="none" stroke="#E4E1FF" stroke-opacity="0.85" stroke-width="9" stroke-linecap="round"/>
+</svg>

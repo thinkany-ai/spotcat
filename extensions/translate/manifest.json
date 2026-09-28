@@ -1,0 +1,22 @@
+{
+  "id": "translate",
+  "name": "__MSG_name__",
+  "version": "0.2.0",
+  "description": "__MSG_description__",
+  "author": "Spotcat",
+  "icon": "sf:translate",
+  "iconColor": "#F59E0B",
+  "main": "index.html",
+  "defaultLocale": "zh-Hans",
+  "permissions": ["network", "ai"],
+  "features": [
+    {
+      "code": "translate",
+      "title": "__MSG_featureTitle__",
+      "keywords": ["__MSG_kwTranslate__", "fy", "fanyi", "translate"],
+      "matches": [
+        { "type": "text", "minLength": 1, "maxLength": 5000 }
+      ]
+    }
+  ]
+}

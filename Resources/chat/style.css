@@ -1,0 +1,126 @@
+:root {
+  --fg: rgba(0, 0, 0, 0.87);
+  --fg-2: rgba(0, 0, 0, 0.5);
+  --fg-3: rgba(0, 0, 0, 0.3);
+  --bubble: rgba(0, 0, 0, 0.06);
+  --field: rgba(0, 0, 0, 0.05);
+  --hover: rgba(0, 0, 0, 0.06);
+  --border: rgba(0, 0, 0, 0.08);
+  --code: rgba(0, 0, 0, 0.05);
+  --accent: #7C3AED;
+  --on-accent: #fff;
+  --error: #DC2626;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: rgba(255, 255, 255, 0.9);
+    --fg-2: rgba(255, 255, 255, 0.5);
+    --fg-3: rgba(255, 255, 255, 0.3);
+    --bubble: rgba(255, 255, 255, 0.09);
+    --field: rgba(255, 255, 255, 0.07);
+    --hover: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.1);
+    --code: rgba(255, 255, 255, 0.07);
+    --accent: #A78BFA;
+    --on-accent: #1a1033;
+    --error: #F87171;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  display: flex; flex-direction: column;
+  background: transparent; color: var(--fg);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  -webkit-user-select: none;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; cursor: default; }
+a { color: var(--accent); }
+
+.icon-btn {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--fg-2);
+}
+.icon-btn:hover { background: var(--hover); color: var(--fg); }
+.icon-btn.small { width: 26px; height: 26px; border-radius: 6px; }
+svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn.small svg { width: 15px; height: 15px; }
+svg .fill { fill: currentColor; stroke: none; }
+
+/* 顶栏 */
+.topbar { display: flex; align-items: center; gap: 8px; padding: 14px 14px 8px 10px; flex-shrink: 0; }
+.titles { flex: 1; min-width: 0; }
+.title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subtitle { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 对话 */
+main { flex: 1; overflow-y: auto; padding: 4px 22px 16px; }
+
+.context { margin: 4px 0 14px; }
+.context-head {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  border: 0; border-radius: 8px; padding: 4px 8px 4px 6px; background: transparent; color: var(--fg-2);
+}
+.context-head:hover { background: var(--hover); }
+.context-head svg { width: 16px; height: 16px; }
+.count { min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--bubble); font-size: 11px; line-height: 18px; text-align: center; }
+.chevron { display: inline-grid; transition: transform 0.15s; }
+.context.open .chevron { transform: rotate(180deg); }
+.context-body { margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--field); max-height: 180px; overflow: auto; }
+.context-item + .context-item { margin-top: 10px; }
+.context-title { font-size: 12px; color: var(--fg-2); margin-bottom: 2px; }
+.context-item pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 -apple-system, "PingFang SC", sans-serif; -webkit-user-select: text; }
+
+.message { margin: 14px 0; -webkit-user-select: text; }
+.message.user {
+  width: fit-content; max-width: 80%; margin-left: auto;
+  padding: 8px 14px; border-radius: 16px; background: var(--bubble);
+  white-space: pre-wrap; word-break: break-word; font-size: 15px;
+}
+.message.assistant { font-size: 15px; }
+.message .actions { display: flex; gap: 2px; margin: 2px 0 0 -4px; opacity: 0; transition: opacity 0.15s; }
+.message:hover .actions, .message:last-child .actions { opacity: 1; }
+.message .error { color: var(--error); font-size: 13px; margin: 4px 0; }
+.message .note { color: var(--fg-2); font-size: 12px; margin: 4px 0; }
+
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown p { margin: 0 0 10px; }
+.markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: 14px 0 6px; font-size: 15px; }
+.markdown ul, .markdown ol { margin: 0 0 10px; padding-left: 22px; }
+.markdown li + li { margin-top: 2px; }
+.markdown blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid var(--border); color: var(--fg-2); }
+.markdown hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
+.markdown code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+.markdown pre { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--code); overflow-x: auto; }
+.markdown pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+.caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--fg); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 60px; color: var(--fg-2); }
+.context:not([hidden]) ~ .empty { padding-top: 30px; }
+.spark { color: var(--accent); }
+.spark svg { width: 40px; height: 40px; }
+.empty h2 { margin: 10px 0 4px; font-size: 17px; font-weight: 600; color: var(--fg); }
+.empty p { font-size: 13px; line-height: 1.6; }
+.primary { border: 0; border-radius: 8px; padding: 6px 16px; background: var(--accent); color: var(--on-accent); font-weight: 500; }
+
+/* 输入框 */
+.composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 14px; flex-shrink: 0; }
+.composer textarea {
+  flex: 1; resize: none; max-height: 160px;
+  padding: 10px 16px; border: 1px solid var(--border); border-radius: 20px; outline: none;
+  background: var(--field); color: var(--fg);
+  font: 15px/1.45 -apple-system, "PingFang SC", sans-serif; -webkit-user-select: text;
+}
+.composer textarea:focus { border-color: var(--accent); }
+.composer textarea::placeholder { color: var(--fg-3); }
+.send {
+  display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+  border: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+}
+.send:disabled { opacity: 0.35; }
+.send.busy { background: var(--fg); }

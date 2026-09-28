@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Codec</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="tabs" id="tabs"></div>
+  <textarea id="input" data-i18n-placeholder="inputPlaceholder" spellcheck="false" autofocus></textarea>
+  <div class="result">
+    <div class="result-head">
+      <span data-i18n="result"></span>
+      <span class="buttons">
+        <button class="copy" id="ask-ai" data-i18n="askAI" disabled></button>
+        <button class="copy" id="copy" data-i18n="copy" disabled></button>
+      </span>
+    </div>
+    <pre id="output" data-i18n-title="result"></pre>
+  </div>
+  <div class="hint" data-i18n="hint"></div>
+
+<script src="main.js"></script>
+</body>
+</html>

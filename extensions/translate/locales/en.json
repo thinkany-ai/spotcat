@@ -1,0 +1,40 @@
+{
+  "name": "Translate",
+  "description": "Compare translations from System Translation, Google Translate and AI",
+  "featureTitle": "Translate",
+  "kwTranslate": "translate",
+
+  "inputPlaceholder": "Text to translate. ↩ to translate now, ⇧↩ for new line",
+  "detected": "Detected: {lang}",
+  "autoDetect": "Detect language",
+  "autoTarget": "Auto",
+  "speak": "Speak",
+  "copy": "Copy",
+  "swap": "Swap languages",
+  "settings": "Settings",
+  "retry": "Retry",
+  "toggle": "Expand/collapse",
+  "askAI": "Ask AI",
+  "translating": "Translating…",
+  "failed": "Translation failed: {message}",
+  "aiNotConfigured": "AI is not configured.",
+  "goToSettings": "Set up",
+
+  "service.system": "System Translation",
+  "service.google": "Google Translate",
+  "service.ai": "AI Translation",
+
+  "settingsTitle": "Translate Settings",
+  "servicesSection": "Services",
+  "aiSection": "AI Translation",
+  "aiNote": "AI Translation uses the AI service configured in Spotcat Settings, shared with AI Chat.",
+  "openSpotcatSettings": "Open Spotcat Settings",
+  "systemNote": "System Translation works offline after downloading language packs: System Settings › General › Language & Region › Translation Languages.",
+  "openLanguageSettings": "Open Language Settings",
+  "close": "Close",
+  "save": "Save",
+
+  "chatTitle": "Translate: {text}",
+  "ctxSource": "Original ({lang})",
+  "ctxTranslation": "{service} translation ({lang})"
+}

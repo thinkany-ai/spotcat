@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="200 170 660 660">
+  <!-- 菜单栏模板图标（单色，系统按菜单栏深浅自动着色）：与 AppIcon 同一造型，线条加粗以适应 18pt -->
+  <g fill="#000" stroke="#000" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M284 362 L267 210 L414 262 Z" stroke-width="40"/>
+    <path d="M656 362 L673 210 L526 262 Z" stroke-width="40"/>
+    <circle cx="470" cy="470" r="205" fill="none" stroke-width="76"/>
+    <line x1="630" y1="630" x2="790" y2="790" stroke-width="100"/>
+    <ellipse cx="398" cy="480" rx="40" ry="52" stroke="none"/>
+    <ellipse cx="542" cy="480" rx="40" ry="52" stroke="none"/>
+  </g>
+</svg>

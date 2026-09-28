@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # 需要 macOS 26 SDK（系统翻译 Translation API）
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          swift --version
+
+      - name: Build universal app (unsigned)
+        run: ./scripts/bundle.sh release --universal
+
+      - name: Archive
+        run: ditto -c -k --keepParent build/Spotcat.app Spotcat-unsigned.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Spotcat-unsigned-${{ github.sha }}
+          path: Spotcat-unsigned.zip
+          if-no-files-found: error

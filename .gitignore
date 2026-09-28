@@ -1,0 +1,16 @@
+# Build output
+.build/
+build/
+dist/
+*.dmg
+
+# Local secrets — never commit signing material or env files
+.env
+.env.*
+*.p12
+*.cer
+*.mobileprovision
+
+# Local tooling
+.claude/settings.local.json
+.DS_Store
