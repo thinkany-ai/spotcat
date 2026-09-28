@@ -225,6 +225,7 @@ enum L10n {
         "update.error.identity": "更新包不是 Spotcat",
         "update.error.unsigned": "当前版本未使用开发者证书签名，无法自动更新，请手动下载",
         "update.error.signature": "更新包签名校验失败",
+        "update.error.checksum": "更新包校验失败，请重试",
         "update.error.permission": "没有权限替换当前 App，请手动下载安装",
 
         "models.default": "默认模型",
@@ -398,6 +399,7 @@ enum L10n {
         "update.error.identity": "The download is not Spotcat",
         "update.error.unsigned": "This copy isn't signed with a Developer ID; download the update manually",
         "update.error.signature": "The update's signature couldn't be verified",
+        "update.error.checksum": "The download is corrupted; please try again",
         "update.error.permission": "No permission to replace the app; install the update manually",
 
         "models.default": "Default model",

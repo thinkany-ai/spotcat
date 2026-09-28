@@ -1,9 +1,10 @@
 import AppKit
+import CryptoKit
 import Security
 
-/// 从 GitHub Releases 检查并安装新版本。
+/// 从 CDN 上的更新清单（https://cdn.spotcat.ai/latest.json）检查并安装新版本。
 ///
-/// 安装前校验：下载的 App 必须 Bundle ID 相同、签名有效，且与当前 App 由同一开发者团队签名；
+/// 安装前校验：ZIP 的 SHA256 与清单一致；下载的 App 必须 Bundle ID 相同、签名有效，且与当前 App 由同一开发者团队签名；
 /// 然后原地替换当前 App 并重启。开发版和 ad-hoc 签名的本地构建不参与更新。
 final class Updater: NSObject, ObservableObject {
     static let shared = Updater()
@@ -25,6 +26,8 @@ final class Updater: NSObject, ObservableObject {
         let notes: String
         let downloadURL: URL
         let pageURL: URL
+        /// 清单中 ZIP 的 SHA256（小写十六进制）
+        let sha256: String?
     }
 
     @Published private(set) var status: Status = .idle
@@ -72,19 +75,19 @@ final class Updater: NSObject, ObservableObject {
         }
         status = .checking
 
-        var request = URLRequest(url: AppLinks.releasesAPI, timeoutInterval: 20)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        var request = URLRequest(url: AppLinks.updateFeed, timeoutInterval: 20)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
                 let httpStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
                 guard error == nil, httpStatus == 200, let data,
-                      let releases = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                      let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     let message = error?.localizedDescription ?? L10n.t("update.error.service", httpStatus)
                     self.status = silent ? .idle : .failed(message)
                     return
                 }
-                if let release = self.newestRelease(in: releases) {
+                if let release = self.newerRelease(in: manifest) {
                     self.status = .available(release)
                 } else {
                     self.status = silent ? .idle : .upToDate
@@ -93,22 +96,14 @@ final class Updater: NSObject, ObservableObject {
         }.resume()
     }
 
-    /// 比当前版本新的最高版本；当前是预发布版本时才考虑预发布
-    private func newestRelease(in releases: [[String: Any]]) -> Release? {
-        let allowPrerelease = currentVersion.contains("-")
-        return releases.compactMap { item -> Release? in
-            guard item["draft"] as? Bool != true,
-                  allowPrerelease || item["prerelease"] as? Bool != true,
-                  let tag = item["tag_name"] as? String,
-                  let page = (item["html_url"] as? String).flatMap(URL.init(string:)),
-                  let assets = item["assets"] as? [[String: Any]],
-                  let zip = assets.first(where: { ($0["name"] as? String)?.hasSuffix(".zip") == true }),
-                  let url = (zip["browser_download_url"] as? String).flatMap(URL.init(string:)) else { return nil }
-            let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-            guard Self.compare(version, currentVersion) == .orderedDescending else { return nil }
-            return Release(version: version, notes: item["body"] as? String ?? "", downloadURL: url, pageURL: page)
-        }
-        .max { Self.compare($0.version, $1.version) == .orderedAscending }
+    /// 清单中的版本比当前新时返回
+    private func newerRelease(in manifest: [String: Any]) -> Release? {
+        guard let version = manifest["version"] as? String,
+              let url = (manifest["url"] as? String).flatMap(URL.init(string:)),
+              Self.compare(version, currentVersion) == .orderedDescending else { return nil }
+        let page = (manifest["page"] as? String).flatMap(URL.init(string:)) ?? AppLinks.releases
+        return Release(version: version, notes: manifest["notes"] as? String ?? "", downloadURL: url,
+                       pageURL: page, sha256: (manifest["sha256"] as? String)?.lowercased())
     }
 
     /// 语义化版本比较：1.2.10 > 1.2.9，1.2.0 > 1.2.0-beta.1
@@ -146,6 +141,9 @@ final class Updater: NSObject, ObservableObject {
         downloadSession = nil
         status = .installing
         do {
+            if let expected = pendingRelease?.sha256, try Self.sha256(of: location) != expected {
+                throw UpdateError(L10n.t("update.error.checksum"))
+            }
             let newApp = try extract(zip: location)
             try verify(newApp)
             try replaceAndRelaunch(with: newApp)
@@ -161,6 +159,11 @@ final class Updater: NSObject, ObservableObject {
     }
 
     private var currentBundleURL: URL { Bundle.main.bundleURL }
+
+    private static func sha256(of file: URL) throws -> String {
+        let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
 
     /// 解压到与当前 App 同一卷上的临时目录，便于原子替换
     private func extract(zip: URL) throws -> URL {

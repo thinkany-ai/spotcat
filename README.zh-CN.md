@@ -117,6 +117,10 @@ make run          # 编译 → build/Spotcat Dev.app（ad-hoc 签名）→ 启�
 构建通用二进制、用 Developer ID 证书签名、公证并 staple App 与 DMG，发布 GitHub Release（附 DMG、ZIP 和 SHA-256 校验）。本地用 `make release` 执行同样的流程。签名凭据用
 [`scripts/setup-release-secrets.sh`](scripts/setup-release-secrets.sh) 一次性设置到仓库 Secrets。
 
+正式版本随后同步到 Cloudflare R2（`https://cdn.spotcat.ai`）：先上传安装包，最后替换 App 内更新读取的
+`latest.json`，官网下载地址固定为 `https://cdn.spotcat.ai/Spotcat.dmg`。需要 `CLOUDFLARE_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、
+`R2_SECRET_ACCESS_KEY` 三个 Secrets；也可以在本地用已登录的 wrangler 执行 `./scripts/publish-cdn.sh`。
+
 ## 参与贡献
 
 欢迎提交 Issue 和 Pull Request，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。

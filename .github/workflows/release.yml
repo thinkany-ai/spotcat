@@ -8,6 +8,8 @@ name: Release
 # 需要的 Secrets（见 scripts/setup-release-secrets.sh）：
 #   APPLE_CERTIFICATE（Developer ID Application .p12 的 base64）、APPLE_CERTIFICATE_PASSWORD、
 #   APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD（App 专用密码）、APPLE_TEAM_ID
+# 发布到 CDN（cdn.spotcat.ai，App 内更新读取这里的 latest.json）另需：
+#   CLOUDFLARE_ACCOUNT_ID、R2_ACCESS_KEY_ID、R2_SECRET_ACCESS_KEY（仅限 spotcat 桶的 R2 读写令牌）
 
 on:
   push:
@@ -20,6 +22,8 @@ permissions:
 jobs:
   release:
     runs-on: macos-26
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
 
@@ -83,3 +87,47 @@ jobs:
       - name: Remove signing keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+
+  # GitHub Release 发布之后再同步到 R2：安装包先上传，latest.json 最后替换
+  publish-cdn:
+    needs: release
+    if: github.event_name == 'push' && needs.release.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check R2 secrets
+        id: r2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        run: |
+          if [ -z "$R2_ACCESS_KEY_ID" ]; then
+            echo "::warning::R2 secrets are not configured; the CDN update feed was not published. Run ./scripts/publish-cdn.sh locally."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.r2.outputs.ready == 'true'
+        with:
+          name: Spotcat-${{ github.ref_name }}
+          path: dist
+
+      - name: Upload to R2 and publish latest.json
+        if: steps.r2.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_MAX_ATTEMPTS: "5"
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/publish-cdn.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Verify public feed
+        if: steps.r2.outputs.ready == 'true' && !contains(github.ref_name, '-')
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          curl -fsS --retry 8 --retry-all-errors --retry-delay 5 https://cdn.spotcat.ai/latest.json | grep -F "\"version\": \"$VERSION\""
+          curl -fsSI --retry 8 --retry-all-errors --retry-delay 5 "https://cdn.spotcat.ai/Spotcat-$VERSION.zip" >/dev/null

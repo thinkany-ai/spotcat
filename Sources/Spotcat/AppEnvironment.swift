@@ -24,5 +24,6 @@ enum AppLinks {
     static let repository = URL(string: "https://github.com/thinkany-ai/spotcat")!
     static let issues = URL(string: "https://github.com/thinkany-ai/spotcat/issues/new")!
     static let releases = URL(string: "https://github.com/thinkany-ai/spotcat/releases")!
-    static let releasesAPI = URL(string: "https://api.github.com/repos/thinkany-ai/spotcat/releases?per_page=20")!
+    /// 更新清单（scripts/publish-cdn.sh 发布到 Cloudflare R2）
+    static let updateFeed = URL(string: "https://cdn.spotcat.ai/latest.json")!
 }

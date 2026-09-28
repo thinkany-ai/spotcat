@@ -134,7 +134,7 @@ Sources/Spotcat/
 └── Settings/                    settings window, store, shortcut recorder
 Resources/                       Info.plist, icons, chat page
 extensions/                      built-in extensions (MIT)
-scripts/                         bundle, release, icons, release secrets
+scripts/                         bundle, release, CDN publish, icons, release secrets
 ```
 
 ## Releasing
@@ -150,6 +150,11 @@ It bumps the version in `Resources/Info.plist`, commits, tags `v0.3.0` and pushe
 Developer ID certificate, notarizes and staples the app and DMG, and publishes a GitHub Release
 with the DMG, ZIP and SHA-256 checksums. The same steps run locally with `make release`. Signing secrets are configured
 once with [`scripts/setup-release-secrets.sh`](scripts/setup-release-secrets.sh).
+
+Stable releases are then mirrored to Cloudflare R2 (`https://cdn.spotcat.ai`): installers first, then
+the `latest.json` feed the in-app updater reads; the website links to `https://cdn.spotcat.ai/Spotcat.dmg`.
+This needs the `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` secrets, or run
+`./scripts/publish-cdn.sh` locally with a logged-in wrangler.
 
 ## Contributing
 
