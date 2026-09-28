@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · 简体中文
+  <a href="https://spotcat.ai">spotcat.ai</a> · <a href="README.md">English</a> · 简体中文
 </p>
 
 ---
