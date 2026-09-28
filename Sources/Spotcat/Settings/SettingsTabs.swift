@@ -355,6 +355,15 @@ private struct ExtensionRow: View {
 
                 Spacer()
 
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([ext.directory])
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help(L10n.t("extensions.reveal"))
+
                 Toggle("", isOn: Binding(
                     get: { enabled },
                     set: { store.setExtension(ext.id, enabled: $0) }
