@@ -29,7 +29,7 @@
 - **应用**：模糊搜索，支持词首和缩写匹配（`vsc` → Visual Studio Code）、中文拼音（`wyy` → 网易云音乐），常用应用自动靠前。
 - **文件**：`file: report` 通过 Spotlight 索引搜索用户目录，按目录分组；支持通配符（`file: *.dmg`、`douchat*.dmg`）和路径浏览 + Tab 补全（`file: ~/Down` ⇥）。输入像文件名的内容时会推荐文件搜索。
 - **网页**：直接输入网址（`github.com`、`localhost:3000`）打开；快捷链接如 `gh spotcat`、`g 天气`；任意文字都可以用默认搜索引擎搜索。
-- **AI 对话**：在搜索框直接提问，或从扩展的结果带着上下文继续追问。流式输出、Markdown 渲染，支持任意 OpenAI 兼容接口（使用你自己的 Key）。
+- **AI 对话**：在搜索框直接提问，或从扩展的结果带着上下文继续追问。流式输出、Markdown 渲染；自带 Key，支持 Anthropic 与任意 OpenAI 兼容服务商。
 - **扩展**：HTML/CSS/JS 编写，可通过关键词或内容（正则）触发。内置 URL/Base64 编解码和多服务对照翻译（系统翻译、Google、AI）。
 - **原生体验**：不抢焦点的浮动面板、全局快捷键、浅色/深色、简体中文/English、开机启动、可拖动并记住位置。
 
@@ -60,8 +60,9 @@
 | `%E4%BD%A0` · `SGVsbG8=` · 任意文字 | 匹配推荐：解码、翻译、AI 对话、网页搜索 |
 | `设置` / `settings` | 打开 Spotcat 设置 |
 
-**AI**：在「设置 › AI」中填写服务商、Base URL、API Key 和模型。Key 保存在本机
-`~/Library/Application Support/Spotcat/ai.json`（权限 600），只会发送给你配置的服务商。
+**模型**：在「设置 › 模型」中添加服务商（Anthropic 或 OpenAI 兼容：OpenAI、OpenRouter、DeepSeek、MiniMax、GLM 等）、
+API Key 和模型，选择默认模型；也可以一键导入 [Termany](https://github.com/thinkany-ai/termany) 的模型设置。Key 保存在本机
+`~/Library/Application Support/Spotcat/models.json`（权限 600），只会发送给对应的服务商。
 
 ## 扩展
 

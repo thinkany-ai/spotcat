@@ -35,7 +35,7 @@ HTML/JS so anyone can write one.
 - **Web** — type a URL (`github.com`, `localhost:3000`) to open it; quicklinks such as
   `gh spotcat` or `g weather`; any text can be searched with your default engine.
 - **AI chat** — ask anything from the search box, or continue from an extension's result with its
-  context attached. Streaming replies, Markdown, any OpenAI-compatible API (bring your own key).
+  context attached. Streaming replies, Markdown; bring your own key for Anthropic or any OpenAI-compatible provider.
 - **Extensions** — built with HTML/CSS/JS, triggered by keywords or by content (regex). Built-in:
   URL/Base64 codec and a multi-engine translator (system translation, Google, AI).
 - **Native feel** — non-activating floating panel, global hotkey, light/dark themes,
@@ -69,8 +69,10 @@ Requires **macOS 13 Ventura** or later. System translation needs macOS 26.
 | `%E4%BD%A0` · `SGVsbG8=` · any text | Suggestions: decode, translate, Ask AI, web search |
 | `settings` / `设置` | Open Spotcat settings |
 
-**AI** — set a provider, base URL, API key and model in *Settings › AI*. Keys are stored locally in
-`~/Library/Application Support/Spotcat/ai.json` (file mode 600) and only sent to the provider you configure.
+**Models** — add providers (Anthropic or OpenAI-compatible: OpenAI, OpenRouter, DeepSeek, MiniMax,
+GLM …) with their API keys and models in *Settings › Models*, pick a default model, or import your
+[Termany](https://github.com/thinkany-ai/termany) model settings in one click. Keys are stored locally in
+`~/Library/Application Support/Spotcat/models.json` (file mode 600) and only sent to their provider.
 
 ## Extensions
 

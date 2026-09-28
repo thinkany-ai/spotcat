@@ -162,54 +162,272 @@ struct AvatarView: View {
     }
 }
 
-// MARK: - AI
+// MARK: - 模型
 
-struct AISettingsView: View {
+struct ModelsSettingsView: View {
     @ObservedObject var store: SettingsStore
+    @ObservedObject var navigation: SettingsNavigation
+
+    private var modelOptions: [(value: String, label: String)] {
+        store.models.providers.flatMap { provider in
+            provider.models.map { ("\(provider.id)/\($0)", "\(provider.name) / \($0)") }
+        }
+    }
 
     var body: some View {
         Form {
             Section {
-                Picker(L10n.t("settings.ai.provider"), selection: Binding(
-                    get: { store.ai.preset },
-                    set: { store.applyAIPreset($0) }
-                )) {
-                    ForEach(AIConfig.presets, id: \.id) { preset in
-                        Text(verbatim: preset.id == AIConfig.customPresetID ? L10n.t("settings.ai.custom") : preset.name)
-                            .tag(preset.id)
+                if modelOptions.isEmpty {
+                    LabeledContent(L10n.t("models.default")) {
+                        Text(L10n.t("models.noProviders")).foregroundStyle(.secondary)
                     }
-                }
-                TextField(L10n.t("settings.ai.baseURL"), text: $store.ai.baseURL, prompt: Text(verbatim: "https://api.example.com/v1"))
-                SecureField(L10n.t("settings.ai.apiKey"), text: $store.ai.apiKey, prompt: Text(verbatim: "sk-..."))
-                TextField(L10n.t("settings.ai.model"), text: $store.ai.model)
-                LabeledContent(L10n.t("settings.ai.connection")) {
-                    HStack(spacing: 10) {
-                        testStatus
-                        Button(L10n.t("settings.ai.test"), action: store.testAI)
-                            .disabled(!store.ai.isConfigured || store.aiTestStatus == .testing)
+                } else {
+                    Picker(L10n.t("models.default"), selection: $store.models.defaultModel) {
+                        ForEach(modelOptions, id: \.value) { option in
+                            Text(verbatim: option.label).tag(option.value)
+                        }
                     }
                 }
             } footer: {
-                SettingsFooter(L10n.t("settings.ai.footer"))
+                SettingsFooter(L10n.t("models.byokHint"))
+            }
+
+            Section {
+                if store.models.providers.isEmpty {
+                    Text(L10n.t("models.empty"))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 6)
+                }
+                ForEach($store.models.providers) { $provider in
+                    if navigation.editingProvider == provider.id {
+                        ProviderEditor(provider: $provider, navigation: navigation) {
+                            commitDraft(into: &provider)
+                            navigation.editingProvider = nil
+                            navigation.providerTest = nil
+                        }
+                    } else {
+                        ProviderRow(provider: provider,
+                                    onEdit: { beginEditing(provider) },
+                                    onDelete: { store.removeModelProvider(provider.id) })
+                    }
+                }
+            } header: {
+                HStack {
+                    Text(L10n.t("models.providers"))
+                    Spacer()
+                    if ModelsConfig.termanyAvailable {
+                        Button(L10n.t("models.importTermany"), action: importTermany)
+                            .buttonStyle(.borderless)
+                    }
+                    Button {
+                        let id = store.addModelProvider()
+                        if let provider = store.models.providers.first(where: { $0.id == id }) { beginEditing(provider) }
+                    } label: {
+                        Label(L10n.t("models.addProvider"), systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            } footer: {
+                if let notice = navigation.modelsNotice {
+                    SettingsFooter(notice)
+                }
             }
         }
         .formStyle(.grouped)
     }
 
+    private func beginEditing(_ provider: ModelProvider) {
+        navigation.modelsDraft = provider.models.joined(separator: "\n")
+        navigation.providerTest = nil
+        navigation.editingProvider = provider.id
+    }
+
+    private func commitDraft(into provider: inout ModelProvider) {
+        provider.models = Self.parseModels(navigation.modelsDraft)
+        store.normalizeDefaultModel()
+    }
+
+    static func parseModels(_ text: String) -> [String] {
+        var seen = Set<String>()
+        return text.split(whereSeparator: { $0 == "\n" || $0 == "," })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    private func importTermany() {
+        if let count = store.importFromTermany() {
+            navigation.modelsNotice = count > 0 ? L10n.t("models.imported", count) : L10n.t("models.importedNone")
+        } else {
+            navigation.modelsNotice = L10n.t("models.importFailed")
+        }
+    }
+}
+
+/// 服务商一行：名称、接口格式、地址与模型数量；未填 Key 时提示
+private struct ProviderRow: View {
+    let provider: ModelProvider
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SettingsIconTile(symbol: provider.kind == .anthropic ? "a.circle.fill" : "o.circle.fill",
+                             tint: provider.kind == .anthropic ? Color(nsColor: .systemBrown) : Color(nsColor: .systemGreen),
+                             size: 28)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(provider.name.isEmpty ? L10n.t("quicklinks.untitled") : provider.name).fontWeight(.medium)
+                    Text(L10n.t(provider.kind == .anthropic ? "models.kind.anthropic" : "models.kind.openai"))
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+                        .foregroundStyle(.secondary)
+                    if !provider.hasKey {
+                        Text(L10n.t("models.noKey"))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Text("\(provider.endpoint?.host ?? "—") · \(L10n.t("models.count", provider.models.count))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 12)
+            Button(action: onEdit) { Image(systemName: "pencil") }
+                .buttonStyle(.borderless)
+                .help(L10n.t("quicklinks.edit"))
+            Button(action: onDelete) { Image(systemName: "trash") }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help(L10n.t("quicklinks.delete"))
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: onEdit)
+    }
+}
+
+/// 展开编辑服务商：预设、接口格式、名称、地址、Key、模型列表、测试连接
+private struct ProviderEditor: View {
+    @Binding var provider: ModelProvider
+    @ObservedObject var navigation: SettingsNavigation
+    let onDone: () -> Void
+
+    private var presetID: Binding<String> {
+        Binding(
+            get: {
+                let base = provider.apiBase.replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
+                return ModelsConfig.presets.first { $0.id != "custom" && $0.apiBase == base && $0.kind == provider.kind }?.id ?? "custom"
+            },
+            set: { id in
+                guard let preset = ModelsConfig.presets.first(where: { $0.id == id }), id != "custom" else { return }
+                provider.kind = preset.kind
+                provider.name = preset.label
+                provider.apiBase = preset.apiBase
+                navigation.modelsDraft = preset.model
+                navigation.providerTest = nil
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 9) {
+                GridRow {
+                    Text(L10n.t("models.form.preset")).foregroundStyle(.secondary)
+                    Picker("", selection: presetID) {
+                        ForEach(ModelsConfig.presets, id: \.id) { preset in
+                            Text(verbatim: preset.id == "custom" ? L10n.t("models.preset.custom") : preset.label).tag(preset.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 220)
+                }
+                GridRow {
+                    Text(L10n.t("models.form.kind")).foregroundStyle(.secondary)
+                    Picker("", selection: $provider.kind) {
+                        Text(L10n.t("models.kind.anthropic")).tag(ModelProvider.Kind.anthropic)
+                        Text(L10n.t("models.kind.openai")).tag(ModelProvider.Kind.openai)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 260)
+                }
+                GridRow {
+                    Text(L10n.t("models.form.name")).foregroundStyle(.secondary)
+                    TextField("", text: $provider.name, prompt: Text(L10n.t("models.form.namePlaceholder")))
+                }
+                GridRow {
+                    Text(verbatim: "Base URL").foregroundStyle(.secondary)
+                    TextField("", text: $provider.apiBase, prompt: Text(verbatim: ModelProvider.defaultBase[provider.kind] ?? ""))
+                }
+                GridRow {
+                    Text(verbatim: "API Key").foregroundStyle(.secondary)
+                    SecureField("", text: $provider.apiKey, prompt: Text(verbatim: "sk-..."))
+                }
+                GridRow(alignment: .top) {
+                    Text(L10n.t("models.form.models")).foregroundStyle(.secondary).padding(.top, 3)
+                    TextField("", text: $navigation.modelsDraft,
+                              prompt: Text(verbatim: provider.kind == .anthropic ? "claude-opus-4-8" : "deepseek-chat"),
+                              axis: .vertical)
+                        .lineLimit(2...6)
+                }
+            }
+            .textFieldStyle(.roundedBorder)
+            // Form 会把空标签的输入框按「标签 + 值」右对齐排版，这里显式隐藏标签、左对齐
+            .labelsHidden()
+            .multilineTextAlignment(.leading)
+
+            Text(L10n.t("models.form.endpoint", provider.endpoint?.absoluteString ?? "—"))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .textSelection(.enabled)
+
+            HStack(spacing: 10) {
+                testStatus
+                Spacer()
+                Button(L10n.t("models.test.run"), action: runTest)
+                    .disabled(navigation.providerTest == .running)
+                Button(L10n.t("quicklinks.done"), action: onDone)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
     @ViewBuilder
     private var testStatus: some View {
-        switch store.aiTestStatus {
-        case .idle:
-            EmptyView()
-        case .testing:
-            Text(L10n.t("settings.ai.testing")).foregroundStyle(.secondary)
-        case .success(let reply):
-            Label(L10n.t("settings.ai.testOK", String(reply.prefix(40))), systemImage: "checkmark.circle.fill")
+        switch navigation.providerTest {
+        case .running:
+            ProgressView().controlSize(.small)
+        case .passed(let model):
+            Label(L10n.t("models.test.passed", model), systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
-        case .failure(let message):
-            Label(L10n.t("settings.ai.testFailed", message), systemImage: "xmark.octagon.fill")
+                .font(.callout)
+        case .failed(let message):
+            Label(message, systemImage: "xmark.octagon.fill")
                 .foregroundStyle(.red)
+                .font(.callout)
+                .lineLimit(2)
                 .textSelection(.enabled)
+        case nil:
+            EmptyView()
+        }
+    }
+
+    private func runTest() {
+        var candidate = provider
+        candidate.models = ModelsSettingsView.parseModels(navigation.modelsDraft)
+        navigation.providerTest = .running
+        Task { @MainActor in
+            do {
+                _ = try await AIService.shared.test(candidate)
+                navigation.providerTest = .passed(candidate.models.first ?? "")
+            } catch {
+                navigation.providerTest = .failed(error.localizedDescription)
+            }
         }
     }
 }

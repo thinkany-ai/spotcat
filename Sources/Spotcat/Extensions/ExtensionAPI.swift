@@ -68,8 +68,12 @@ final class ExtensionAPI {
             (NSApp.delegate as? AppDelegate)?.showSettings(tab: tab)
             reply(true, nil)
         case "ai.info":
-            let config = SettingsStore.shared.ai
-            reply(["configured": config.isConfigured, "model": config.model, "provider": config.providerName], nil)
+            let target = SettingsStore.shared.models.resolvedDefault
+            reply([
+                "configured": target?.provider.hasKey ?? false,
+                "model": target?.model ?? "",
+                "provider": target?.provider.name ?? "",
+            ], nil)
         case "ai.chat":
             aiChat(args, reply: reply)
         case "ai.cancel":

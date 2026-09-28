@@ -104,14 +104,10 @@ final class SettingsStore: ObservableObject {
     }
     var onLanguageChange: (() -> Void)?
 
-    @Published var ai: AIConfig {
-        didSet {
-            guard ai != oldValue else { return }
-            ai.save()
-            aiTestStatus = .idle
-        }
+    /// 模型服务商与默认模型（数据目录/models.json）
+    @Published var models: ModelsConfig {
+        didSet { if models != oldValue { models.save() } }
     }
-    @Published private(set) var aiTestStatus: AITestStatus = .idle
 
     /// "system"、"light" 或 "dark"
     @Published var appearance: String {
@@ -193,7 +189,7 @@ final class SettingsStore: ObservableObject {
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
         showSuggestions = defaults.object(forKey: Self.showSuggestionsKey) as? Bool ?? true
         autoCheckUpdates = defaults.object(forKey: Self.autoCheckUpdatesKey) as? Bool ?? true
-        ai = AIConfig.load()
+        models = ModelsConfig.load()
         refreshLaunchAtLogin()
     }
 
@@ -334,91 +330,39 @@ final class SettingsStore: ObservableObject {
         avatar = nil
     }
 
-    // MARK: - AI
+    // MARK: - 模型
 
-    enum AITestStatus: Equatable {
-        case idle
-        case testing
-        case success(String)
-        case failure(String)
+    /// 服务商或模型变化后，保证默认模型仍然存在；否则改用第一个模型
+    func normalizeDefaultModel() {
+        let all = models.providers.flatMap { provider in provider.models.map { "\(provider.id)/\($0)" } }
+        if !all.contains(models.defaultModel) { models.defaultModel = all.first ?? "" }
     }
 
-    /// 发一条极短的请求验证配置
-    func testAI() {
-        aiTestStatus = .testing
-        Task { @MainActor in
-            do {
-                let reply = try await AIService.shared.chat(messages: [["role": "user", "content": "Reply with the single word: OK"]])
-                aiTestStatus = .success(reply.trimmingCharacters(in: .whitespacesAndNewlines))
-            } catch {
-                aiTestStatus = .failure(error.localizedDescription)
-            }
-        }
+    @discardableResult
+    func addModelProvider() -> String {
+        let preset = ModelsConfig.presets[0]
+        let provider = ModelProvider(id: UUID().uuidString, name: preset.label, kind: preset.kind,
+                                     apiBase: preset.apiBase, apiKey: "", models: [preset.model])
+        models.providers.insert(provider, at: 0)
+        normalizeDefaultModel()
+        return provider.id
     }
 
-    func applyAIPreset(_ id: String) {
-        guard let preset = AIConfig.presets.first(where: { $0.id == id }) else { return }
-        var config = ai
-        config.preset = id
-        if id != AIConfig.customPresetID {
-            config.baseURL = preset.baseURL
-            config.model = preset.model
-        }
-        ai = config
-    }
-}
-
-/// OpenAI 兼容接口配置。含 API Key，单独存成仅当前用户可读的文件（0600），不放 UserDefaults
-struct AIConfig: Codable, Equatable {
-    struct Preset {
-        let id: String
-        let name: String
-        let baseURL: String
-        let model: String
+    func removeModelProvider(_ id: String) {
+        models.providers.removeAll { $0.id == id }
+        normalizeDefaultModel()
     }
 
-    static let customPresetID = "custom"
-    static let presets: [Preset] = [
-        Preset(id: "siliconflow", name: "硅基流动 SiliconFlow", baseURL: "https://api.siliconflow.cn/v1", model: "Qwen/Qwen2.5-7B-Instruct"),
-        Preset(id: "deepseek", name: "DeepSeek", baseURL: "https://api.deepseek.com/v1", model: "deepseek-chat"),
-        Preset(id: "openrouter", name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", model: "openai/gpt-4o-mini"),
-        Preset(id: "openai", name: "OpenAI", baseURL: "https://api.openai.com/v1", model: "gpt-4o-mini"),
-        Preset(id: customPresetID, name: "", baseURL: "", model: ""),
-    ]
-
-    var preset: String
-    var baseURL: String
-    var apiKey: String
-    var model: String
-
-    var isConfigured: Bool {
-        !baseURL.trimmingCharacters(in: .whitespaces).isEmpty
-            && !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
-            && !model.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    var providerName: String {
-        preset == Self.customPresetID
-            ? (URL(string: baseURL)?.host ?? L10n.t("settings.ai.custom"))
-            : Self.presets.first { $0.id == preset }?.name ?? preset
-    }
-
-    private static var fileURL: URL {
-        AppEnvironment.dataDirectory.appendingPathComponent("ai.json")
-    }
-
-    static func load() -> AIConfig {
-        if let data = try? Data(contentsOf: fileURL), let config = try? JSONDecoder().decode(AIConfig.self, from: data) {
-            return config
-        }
-        let first = presets[0]
-        return AIConfig(preset: first.id, baseURL: first.baseURL, apiKey: "", model: first.model)
-    }
-
-    func save() {
-        let url = Self.fileURL
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        FileManager.default.createFile(atPath: url.path, contents: data, attributes: [.posixPermissions: 0o600])
+    /// 导入 Termany 的服务商（跳过 id 已存在的），返回导入数量；读不到时返回 nil
+    func importFromTermany() -> Int? {
+        guard let termany = ModelsConfig.readTermany() else { return nil }
+        let existing = Set(models.providers.map(\.id))
+        let added = termany.providers.filter { !existing.contains($0.id) }
+        let hadModels = models.providers.contains { !$0.models.isEmpty }
+        models.providers.append(contentsOf: added)
+        // 之前没有任何模型时沿用 Termany 的默认模型
+        if !hadModels { models.defaultModel = termany.defaultModel }
+        normalizeDefaultModel()
+        return added.count
     }
 }

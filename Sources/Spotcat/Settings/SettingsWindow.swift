@@ -12,7 +12,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .extensions: return "puzzlepiece.extension.fill"
         case .quicklinks: return "link"
         case .profile: return "person.crop.circle.fill"
-        case .ai: return "brain.head.profile"
+        case .ai: return "cpu"
         case .about: return "info.circle.fill"
         }
     }
@@ -38,6 +38,19 @@ final class SettingsNavigation: ObservableObject {
     @Published var selection: SettingsTab? = .general
     /// 快捷链接页正在编辑的条目
     @Published var editingQuicklink: String?
+    /// 模型页正在编辑的服务商，以及它的测试结果
+    @Published var editingProvider: String?
+    /// 编辑中的模型列表原文（一行一个），完成或测试时才解析
+    @Published var modelsDraft = ""
+    @Published var providerTest: ProviderTest?
+    /// 模型页的提示（如导入结果）
+    @Published var modelsNotice: String?
+
+    enum ProviderTest: Equatable {
+        case running
+        case passed(String)
+        case failed(String)
+    }
 }
 
 final class SettingsWindowController {
@@ -147,7 +160,7 @@ struct SettingsRootView: View {
         case .extensions: ExtensionsSettingsView(store: store, manager: .shared)
         case .quicklinks: QuicklinksSettingsView(store: store, navigation: navigation)
         case .profile: ProfileSettingsView(store: store)
-        case .ai: AISettingsView(store: store)
+        case .ai: ModelsSettingsView(store: store, navigation: navigation)
         case .about: AboutSettingsView(store: store, updater: .shared)
         }
     }
