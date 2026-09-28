@@ -1,11 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="210 176 620 620">
-  <!-- 菜单栏模板图标（单色，系统按菜单栏深浅自动着色）：与 AppIcon 同一造型，线条加粗以适应 18pt -->
-  <g fill="#000" stroke="#000" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M330 350 L318 206 L440 272 Z" stroke-width="40"/>
-    <path d="M630 350 L642 206 L520 272 Z" stroke-width="40"/>
-    <circle cx="480" cy="478" r="190" fill="none" stroke-width="78"/>
-    <line x1="630" y1="628" x2="768" y2="766" stroke-width="96"/>
-    <ellipse cx="418" cy="480" rx="30" ry="60" stroke="none"/>
-    <ellipse cx="542" cy="480" rx="30" ry="60" stroke="none"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="3 7 94 94">
+  <!-- 菜单栏模板图标（单色，系统按菜单栏深浅自动着色）：与 AppIcon 同一标志 -->
+  <defs>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect width="100" height="100" fill="#fff"/>
+      <polyline points="38,30 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
+    </mask>
+  </defs>
+  <g mask="url(#cut)">
+      <path d="M9 17 L45 40 L91 17 L91 58 C91 74 80 84 64 84 L36 84 C20 84 9 74 9 58 Z" fill="#000" stroke="#000" stroke-width="7" stroke-linejoin="round"/>
+    </g>
 </svg>

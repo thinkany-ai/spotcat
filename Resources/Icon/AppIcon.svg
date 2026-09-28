@@ -1,57 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Spotcat：放大镜镜框长出猫耳，镜片里一双发光的猫眼。深色玻璃底 + 琥珀描边与辉光，金属渐变字形，细颗粒质感 -->
+  <!-- Spotcat：猫耳轮廓 + 「>」指令符（负空间），科技蓝纯色底 -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2C2C33"/><stop offset="1" stop-color="#0A0A0D"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="474" cy="486" r="330" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF9A1F" stop-opacity="0.42"/><stop offset="0.55" stop-color="#FF7A1A" stop-opacity="0.12"/><stop offset="1" stop-color="#FF7A1A" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="rim" x1="100" y1="100" x2="924" y2="924" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFD27A"/><stop offset="0.45" stop-color="#FF8A2A" stop-opacity="0.35"/><stop offset="1" stop-color="#FF5E1A" stop-opacity="0.9"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="100" x2="0" y2="520" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="metal" x1="0" y1="200" x2="0" y2="780" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#BFC2CC"/>
-    </linearGradient>
-    <radialGradient id="lens" cx="440" cy="420" r="220" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2A2118"/><stop offset="1" stop-color="#0E0D10"/>
-    </radialGradient>
-    <linearGradient id="eye" x1="0" y1="420" x2="0" y2="540" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFE39A"/><stop offset="0.5" stop-color="#FFB020"/><stop offset="1" stop-color="#FF7A00"/>
-    </linearGradient>
-    <filter id="drop" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/></filter>
-    <filter id="gshadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.55"/></filter>
-    <filter id="blur" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="18"/></filter>
-    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  2.2 0 0 0 -0.9"/></filter>
-    <clipPath id="clip"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect width="100" height="100" fill="#fff"/>
+      <polyline points="38,30 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
+    </mask>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#drop)"/>
-  <rect x="100" y="100" width="824" height="824" clip-path="url(#clip)" filter="url(#grain)" opacity="0.07"/>
-  <g clip-path="url(#clip)">
-    <rect x="100" y="100" width="824" height="824" fill="url(#glow)"/>
-    <rect x="100" y="100" width="824" height="420" fill="url(#sheen)"/>
-  </g>
-  <rect x="104" y="104" width="816" height="816" rx="181" fill="none" stroke="url(#rim)" stroke-width="8"/>
-  <g transform="translate(512 512) scale(0.88) translate(-518 -504)">
-    <circle cx="480" cy="478" r="170" fill="url(#lens)"/>
-    <g filter="url(#gshadow)" fill="url(#metal)" stroke="url(#metal)" stroke-linejoin="round" stroke-linecap="round">
-      <path d="M330 350 L318 206 L440 272 Z" stroke-width="30"/>
-      <path d="M630 350 L642 206 L520 272 Z" stroke-width="30"/>
-      <circle cx="480" cy="478" r="196" fill="none" stroke-width="62"/>
-      <line x1="632" y1="630" x2="760" y2="758" stroke-width="80"/>
-    </g>
-    <path d="M358 420 A140 140 0 0 1 430 350" fill="none" stroke="#FFFFFF" stroke-opacity="0.28" stroke-width="14" stroke-linecap="round"/>
-    <g fill="#FF9A1F" filter="url(#blur)" opacity="0.9">
-      <ellipse cx="418" cy="480" rx="30" ry="62"/><ellipse cx="542" cy="480" rx="30" ry="62"/>
-    </g>
-    <g fill="url(#eye)">
-      <ellipse cx="418" cy="480" rx="26" ry="58"/><ellipse cx="542" cy="480" rx="26" ry="58"/>
-    </g>
-    <g fill="#FFFFFF" fill-opacity="0.85">
-      <ellipse cx="411" cy="452" rx="7" ry="11"/><ellipse cx="535" cy="452" rx="7" ry="11"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#1A6BFF" filter="url(#shadow)"/>
+  <g transform="translate(252 250) scale(5.2)">
+    <g mask="url(#cut)">
+      <path d="M9 17 L45 40 L91 17 L91 58 C91 74 80 84 64 84 L36 84 C20 84 9 74 9 58 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/>
     </g>
   </g>
 </svg>
