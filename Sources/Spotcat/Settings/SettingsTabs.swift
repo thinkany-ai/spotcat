@@ -69,7 +69,6 @@ struct GeneralSettingsView: View {
 
             Section {
                 Toggle(L10n.t("settings.results.recents"), isOn: $store.showRecents)
-                Toggle(L10n.t("settings.results.best"), isOn: $store.showBestMatches)
                 Toggle(L10n.t("settings.results.suggestions"), isOn: $store.showSuggestions)
                 LabeledContent {
                     Button(L10n.t("settings.results.clear"), action: store.clearUsageHistory)
@@ -79,8 +78,6 @@ struct GeneralSettingsView: View {
                 }
             } header: {
                 Text(L10n.t("settings.results"))
-            } footer: {
-                SettingsFooter(L10n.t("settings.results.footer"))
             }
 
             Section(L10n.t("settings.window")) {

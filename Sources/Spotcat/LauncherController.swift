@@ -329,9 +329,8 @@ final class LauncherController: NSObject {
                 .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name.localizedStandardCompare($1.0.name) == .orderedAscending }
                 .map(\.0)
                 .filter { !pinnedIDs.contains($0.id) }
-            // 网址和「关键词 内容」的快捷链接放在最前，↩ 直接打开；
-            // 关闭「最佳搜索结果」时只保留这些明确意图的置顶项
-            let best = Array((pinned + (options.showBestMatches ? ranked : [])).prefix(Layout.maxResults))
+            // 网址和「关键词 内容」的快捷链接放在最前，↩ 直接打开
+            let best = Array((pinned + ranked).prefix(Layout.maxResults))
 
             let bestIDs = Set(best.map(\.id))
             // 任意文本都可以直接问 AI，放在匹配推荐的第一位

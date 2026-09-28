@@ -86,7 +86,6 @@ final class SettingsStore: ObservableObject {
     private static let quicklinksKey = "quicklinks"
     private static let searchEngineKey = "defaultSearchEngine"
     private static let showRecentsKey = "showRecents"
-    private static let showBestMatchesKey = "showBestMatches"
     private static let showSuggestionsKey = "showSuggestions"
 
     @Published private(set) var shortcut: Shortcut
@@ -144,9 +143,6 @@ final class SettingsStore: ObservableObject {
     @Published var showRecents: Bool {
         didSet { saveSearchOption(showRecents, Self.showRecentsKey) }
     }
-    @Published var showBestMatches: Bool {
-        didSet { saveSearchOption(showBestMatches, Self.showBestMatchesKey) }
-    }
     @Published var showSuggestions: Bool {
         didSet { saveSearchOption(showSuggestions, Self.showSuggestionsKey) }
     }
@@ -190,7 +186,6 @@ final class SettingsStore: ObservableObject {
         defaultSearchEngine = UserDefaults.standard.string(forKey: Self.searchEngineKey) ?? "google"
         let defaults = UserDefaults.standard
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
-        showBestMatches = defaults.object(forKey: Self.showBestMatchesKey) as? Bool ?? true
         showSuggestions = defaults.object(forKey: Self.showSuggestionsKey) as? Bool ?? true
         ai = AIConfig.load()
         refreshLaunchAtLogin()
