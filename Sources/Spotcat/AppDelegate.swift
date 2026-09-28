@@ -78,7 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let legacyID = "ai.trys.spotcat"
         let marker = "migratedFromLegacyBundleID"
         let defaults = UserDefaults.standard
-        guard Bundle.main.bundleIdentifier != legacyID, !defaults.bool(forKey: marker) else { return }
+        // 只迁移到正式版；开发版从干净的数据开始
+        guard !AppEnvironment.isDevelopment, Bundle.main.bundleIdentifier != legacyID,
+              !defaults.bool(forKey: marker) else { return }
         if let legacy = defaults.persistentDomain(forName: legacyID) {
             for (key, value) in legacy where defaults.object(forKey: key) == nil {
                 defaults.set(value, forKey: key)
@@ -106,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             icon.isTemplate = true
             icon.size = NSSize(width: 18, height: 18)
             statusItem.button?.image = icon
+            statusItem.button?.toolTip = AppEnvironment.appName
         } else {
             statusItem.button?.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Spotcat")
         }

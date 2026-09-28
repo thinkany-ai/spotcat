@@ -18,6 +18,8 @@ cd spotcat
 make run        # builds build/Spotcat.app and launches it
 ```
 
+Local builds are **Spotcat Dev** (bundle ID `ai.thinkany.spotcat.dev`, data in
+`~/Library/Application Support/Spotcat Dev`, hotkey ⌥⇧Space), isolated from an installed release.
 `make debug` builds a debug bundle. `swift build` alone compiles, but features that need bundle
 resources (icons, the chat page, built-in extensions) only work from the `.app`.
 

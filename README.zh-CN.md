@@ -97,6 +97,10 @@ make run          # 编译 → build/Spotcat.app（ad-hoc 签名）→ 启动
 | `make universal` | 构建通用二进制（arm64 + x86_64） |
 | `make release` | 签名、公证并打包 DMG + ZIP 到 `dist/`（维护者） |
 | `make icons` | 从 `Resources/Icon/*.svg` 重新生成图标（需要 `brew install librsvg`） |
+| `SPOTCAT_CHANNEL=release make build` | 在本地构建正式版（未签名） |
+
+本地构建的是**开发版 Spotcat Dev**：独立的 Bundle ID（`ai.thinkany.spotcat.dev`）、数据目录（`~/Library/Application Support/Spotcat Dev`）、
+默认快捷键（⌥⇧Space）和琥珀色图标，开发调试不会影响已安装的正式版，两者可以同时运行。`make release`（以及 CI）构建的是正式版 **Spotcat**。
 
 只安装了 Command Line Tools 时没有 SwiftUI 宏插件，请用 `ObservableObject` 代替 `@State` / `@Observable`。
 

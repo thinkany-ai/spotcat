@@ -9,7 +9,12 @@ struct Shortcut: Codable, Equatable {
     /// 按键显示名，录制时按当前键盘布局取得
     var key: String
 
-    static let `default` = Shortcut(keyCode: UInt32(kVK_Space), modifiers: NSEvent.ModifierFlags.option.rawValue, key: "Space")
+    /// 正式版 ⌥Space；开发版 ⌥⇧Space，两个版本同时运行时不抢同一个快捷键
+    static let `default` = Shortcut(
+        keyCode: UInt32(kVK_Space),
+        modifiers: (AppEnvironment.isDevelopment ? [.option, .shift] : NSEvent.ModifierFlags.option).rawValue,
+        key: "Space"
+    )
 
     private static let allowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
 
@@ -289,8 +294,7 @@ final class SettingsStore: ObservableObject {
     // MARK: - 个人资料
 
     static var dataDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Spotcat", isDirectory: true)
+        AppEnvironment.dataDirectory
     }
 
     private static var avatarURL: URL { dataDirectory.appendingPathComponent("avatar.png") }
@@ -394,8 +398,7 @@ struct AIConfig: Codable, Equatable {
     }
 
     private static var fileURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Spotcat/ai.json")
+        AppEnvironment.dataDirectory.appendingPathComponent("ai.json")
     }
 
     static func load() -> AIConfig {

@@ -236,7 +236,7 @@ struct AboutSettingsView: View {
                         .resizable()
                         .frame(width: 72, height: 72)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: "Spotcat").font(.title2.weight(.semibold))
+                        Text(verbatim: AppEnvironment.appName).font(.title2.weight(.semibold))
                         Text(L10n.t("about.version", version, build))
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)

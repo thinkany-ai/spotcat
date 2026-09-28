@@ -210,8 +210,7 @@ final class ExtensionStorage {
     private var values: [String: Any]
 
     init(extensionID: String) {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Spotcat/ExtensionData", isDirectory: true)
+        let dir = AppEnvironment.dataDirectory.appendingPathComponent("ExtensionData", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("\(extensionID).json")
         values = (try? Data(contentsOf: url))

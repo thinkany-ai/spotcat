@@ -109,6 +109,12 @@ make run          # build → build/Spotcat.app (ad-hoc signed) → launch
 | `make universal` | Universal (arm64 + x86_64) build |
 | `make release` | Sign, notarize and package DMG + ZIP into `dist/` (maintainers) |
 | `make icons` | Regenerate icons from `Resources/Icon/*.svg` (needs `brew install librsvg`) |
+| `SPOTCAT_CHANNEL=release make build` | Build the release flavor locally (unsigned) |
+
+Local builds are **Spotcat Dev**: a separate bundle ID (`ai.thinkany.spotcat.dev`), data folder
+(`~/Library/Application Support/Spotcat Dev`), default hotkey (⌥⇧Space) and an amber icon, so
+developing never touches an installed release and both can run side by side. `make release`
+(and CI) build the regular **Spotcat**.
 
 With only the Command Line Tools installed, SwiftUI macros are unavailable — use
 `ObservableObject` instead of `@State` / `@Observable`.

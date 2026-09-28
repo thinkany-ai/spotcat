@@ -32,7 +32,20 @@ jobs:
             exit 1
           fi
 
+      - name: Check signing secrets
+        id: secrets
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::notice::Signing secrets are not configured (see scripts/setup-release-secrets.sh); skipping. Release locally with ./scripts/release.sh --publish."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Import signing certificate
+        if: steps.secrets.outputs.ready == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -51,6 +64,7 @@ jobs:
           rm -f "$CERT_PATH"
 
       - name: Build, sign, notarize
+        if: steps.secrets.outputs.ready == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -60,6 +74,7 @@ jobs:
         run: ./scripts/release.sh ${{ github.event_name == 'push' && '--publish' || '' }}
 
       - uses: actions/upload-artifact@v4
+        if: steps.secrets.outputs.ready == 'true'
         with:
           name: Spotcat-${{ github.ref_name }}
           path: dist/*

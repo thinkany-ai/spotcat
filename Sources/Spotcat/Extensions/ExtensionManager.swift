@@ -91,8 +91,7 @@ final class ExtensionManager: ObservableObject {
     private var lastLoad = Date.distantPast
 
     static var userExtensionsDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Spotcat/Extensions", isDirectory: true)
+        AppEnvironment.dataDirectory.appendingPathComponent("Extensions", isDirectory: true)
     }
 
     private static var builtInDirectory: URL? {

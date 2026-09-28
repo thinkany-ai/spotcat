@@ -31,7 +31,8 @@ my-extension/
 把扩展目录放到（或软链接到）：
 
 ```
-~/Library/Application Support/Spotcat/Extensions/<你的扩展>/
+~/Library/Application Support/Spotcat/Extensions/<你的扩展>/        # 正式版
+~/Library/Application Support/Spotcat Dev/Extensions/<你的扩展>/    # 本地构建的开发版
 ```
 
 ```sh

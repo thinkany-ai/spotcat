@@ -33,7 +33,7 @@ notarize() {
 }
 
 echo "==> [1/6] Build universal app (v$VERSION)"
-./scripts/bundle.sh release --universal
+SPOTCAT_CHANNEL=release ./scripts/bundle.sh release --universal
 
 echo "==> [2/6] Sign with Developer ID (hardened runtime)"
 codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$APP"
@@ -66,7 +66,12 @@ spctl --assess --type open --context context:primary-signature --verbose "$DMG"
 ls -lh "$DIST"
 
 if [ "$PUBLISH" = "--publish" ]; then
-  echo "==> Create draft GitHub Release v$VERSION"
-  gh release create "v$VERSION" "$DMG" "$ZIP" "$DIST/SHA256SUMS.txt" \
-    --draft --title "Spotcat v$VERSION" --generate-notes
+  if gh release view "v$VERSION" >/dev/null 2>&1; then
+    echo "==> Upload to existing GitHub Release v$VERSION"
+    gh release upload "v$VERSION" "$DMG" "$ZIP" "$DIST/SHA256SUMS.txt" --clobber
+  else
+    echo "==> Create draft GitHub Release v$VERSION"
+    gh release create "v$VERSION" "$DMG" "$ZIP" "$DIST/SHA256SUMS.txt" \
+      --draft --title "Spotcat v$VERSION" --generate-notes
+  fi
 fi

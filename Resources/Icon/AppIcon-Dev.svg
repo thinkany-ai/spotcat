@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Spotcat：放大镜镜框长出猫耳，镜片里一双竖瞳猫眼。纯色、单线条、一个点缀色 -->
+  <!-- Spotcat Dev（开发版配色）：放大镜镜框长出猫耳，镜片里一双竖瞳猫眼。纯色、单线条、一个点缀色 -->
   <defs>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.25"/>
     </filter>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="#121214" filter="url(#shadow)"/>
-  <g transform="translate(-6 8)" fill="#FFFFFF" stroke="#FFFFFF" stroke-linejoin="round" stroke-linecap="round">
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#FFB020" filter="url(#shadow)"/>
+  <g transform="translate(-6 8)" fill="#121214" stroke="#121214" stroke-linejoin="round" stroke-linecap="round">
     <path d="M330 350 L318 206 L440 272 Z" stroke-width="30"/>
     <path d="M630 350 L642 206 L520 272 Z" stroke-width="30"/>
     <circle cx="480" cy="478" r="196" fill="none" stroke-width="62"/>
     <line x1="632" y1="630" x2="760" y2="758" stroke-width="80"/>
   </g>
-  <g transform="translate(-6 8)" fill="#FFB020">
+  <g transform="translate(-6 8)" fill="#FFFFFF">
     <ellipse cx="418" cy="480" rx="26" ry="58"/>
     <ellipse cx="542" cy="480" rx="26" ry="58"/>
   </g>
