@@ -6,11 +6,11 @@ build:
 debug:
 	./scripts/bundle.sh debug
 
-# 只重启本地构建的开发版，不影响已安装的正式版（两者可执行文件同名）
+# 构建并重启开发版 build/Spotcat Dev.app，不影响已安装的正式版
 run: build
-	-pkill -f "build/Spotcat.app/Contents/MacOS/Spotcat"
-	@while pgrep -f "build/Spotcat.app/Contents/MacOS/Spotcat" >/dev/null; do sleep 0.1; done
-	open build/Spotcat.app
+	-pkill -f "build/Spotcat Dev.app/Contents/MacOS/Spotcat"
+	@while pgrep -f "build/Spotcat Dev.app/Contents/MacOS/Spotcat" >/dev/null; do sleep 0.1; done
+	open "build/Spotcat Dev.app"
 
 universal:
 	./scripts/bundle.sh release --universal

@@ -5,15 +5,16 @@
 #   ./scripts/bundle.sh debug                 debug 配置，本机架构
 #   ./scripts/bundle.sh release --universal   arm64 + x86_64 通用二进制
 #
-# 默认打出「开发版」Spotcat Dev（Bundle ID ai.thinkany.spotcat.dev、数据目录 Spotcat Dev、琥珀色图标），
-# 与已安装的正式版互不影响；SPOTCAT_CHANNEL=release 时打正式版（scripts/release.sh 使用）。
+# 默认打出「开发版」build/Spotcat Dev.app（Bundle ID ai.thinkany.spotcat.dev、数据目录 Spotcat Dev、琥珀色图标），
+# 与已安装的正式版互不影响；SPOTCAT_CHANNEL=release 时打正式版 build/Spotcat.app（scripts/release.sh 使用）。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
 UNIVERSAL="${2:-}"
 CHANNEL="${SPOTCAT_CHANNEL:-dev}"
-APP="build/Spotcat.app"
+# 两个版本输出到不同路径，互不覆盖
+if [ "$CHANNEL" = "release" ]; then APP="build/Spotcat.app"; else APP="build/Spotcat Dev.app"; fi
 BINARY="build/Spotcat"
 mkdir -p build
 

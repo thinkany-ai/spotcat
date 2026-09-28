@@ -160,8 +160,26 @@ final class LauncherController: NSObject {
             }
             .store(in: &cancellables)
 
+        // 开发版在头像左边显示 DEV 标签，避免和正式版混淆
+        var trailingX = avatarX
+        if AppEnvironment.isDevelopment {
+            let badge = NSTextField(labelWithString: "DEV")
+            badge.font = .systemFont(ofSize: 11, weight: .bold)
+            badge.textColor = .black
+            badge.alignment = .center
+            badge.wantsLayer = true
+            badge.layer?.backgroundColor = NSColor(srgbRed: 1, green: 0.69, blue: 0.13, alpha: 1).cgColor
+            badge.layer?.cornerRadius = 5
+            badge.toolTip = AppEnvironment.appName
+            let size = NSSize(width: 38, height: 18)
+            trailingX = avatarX - size.width - 10
+            badge.frame = NSRect(x: trailingX, y: (Layout.searchHeight - size.height) / 2, width: size.width, height: size.height)
+            badge.autoresizingMask = [.minXMargin]
+            container.addSubview(badge)
+        }
+
         searchField.frame = NSRect(x: Layout.horizontalPadding, y: (Layout.searchHeight - 34) / 2,
-                                   width: avatarX - Layout.horizontalPadding - 12, height: 34)
+                                   width: trailingX - Layout.horizontalPadding - 12, height: 34)
         searchField.autoresizingMask = [.width]
         searchField.isBordered = false
         searchField.drawsBackground = false

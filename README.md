@@ -100,19 +100,19 @@ to compile the system-translation code path.
 ```bash
 git clone https://github.com/thinkany-ai/spotcat.git
 cd spotcat
-make run          # build → build/Spotcat.app (ad-hoc signed) → launch
+make run          # build → build/Spotcat Dev.app (ad-hoc signed) → launch
 ```
 
 | Command | What it does |
 |---|---|
-| `make build` / `make debug` | Build `build/Spotcat.app` for this Mac |
+| `make build` / `make debug` | Build `build/Spotcat Dev.app` for this Mac |
 | `make universal` | Universal (arm64 + x86_64) build |
 | `make release` | Sign, notarize and package DMG + ZIP into `dist/` (maintainers) |
 | `make icons` | Regenerate icons from `Resources/Icon/*.svg` (needs `brew install librsvg`) |
-| `SPOTCAT_CHANNEL=release make build` | Build the release flavor locally (unsigned) |
+| `SPOTCAT_CHANNEL=release make build` | Build the release flavor `build/Spotcat.app` locally (unsigned) |
 
 Local builds are **Spotcat Dev**: a separate bundle ID (`ai.thinkany.spotcat.dev`), data folder
-(`~/Library/Application Support/Spotcat Dev`), default hotkey (⌥⇧Space) and an amber icon, so
+(`~/Library/Application Support/Spotcat Dev`), default hotkey (⌥⇧Space), an amber icon and a DEV badge in the panel, so
 developing never touches an installed release and both can run side by side. `make release`
 (and CI) build the regular **Spotcat**.
 

@@ -15,7 +15,7 @@ change merged.
 ```bash
 git clone git@github.com:thinkany-ai/spotcat.git
 cd spotcat
-make run        # builds build/Spotcat.app and launches it
+make run        # builds build/Spotcat Dev.app and launches it
 ```
 
 Local builds are **Spotcat Dev** (bundle ID `ai.thinkany.spotcat.dev`, data in

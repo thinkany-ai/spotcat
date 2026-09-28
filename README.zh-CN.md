@@ -88,19 +88,19 @@ my-extension/
 ```bash
 git clone https://github.com/thinkany-ai/spotcat.git
 cd spotcat
-make run          # 编译 → build/Spotcat.app（ad-hoc 签名）→ 启动
+make run          # 编译 → build/Spotcat Dev.app（ad-hoc 签名）→ 启动
 ```
 
 | 命令 | 作用 |
 |---|---|
-| `make build` / `make debug` | 为本机构建 `build/Spotcat.app` |
+| `make build` / `make debug` | 为本机构建 `build/Spotcat Dev.app` |
 | `make universal` | 构建通用二进制（arm64 + x86_64） |
 | `make release` | 签名、公证并打包 DMG + ZIP 到 `dist/`（维护者） |
 | `make icons` | 从 `Resources/Icon/*.svg` 重新生成图标（需要 `brew install librsvg`） |
-| `SPOTCAT_CHANNEL=release make build` | 在本地构建正式版（未签名） |
+| `SPOTCAT_CHANNEL=release make build` | 在本地构建正式版 `build/Spotcat.app`（未签名） |
 
 本地构建的是**开发版 Spotcat Dev**：独立的 Bundle ID（`ai.thinkany.spotcat.dev`）、数据目录（`~/Library/Application Support/Spotcat Dev`）、
-默认快捷键（⌥⇧Space）和琥珀色图标，开发调试不会影响已安装的正式版，两者可以同时运行。`make release`（以及 CI）构建的是正式版 **Spotcat**。
+默认快捷键（⌥⇧Space）、琥珀色图标和面板上的 DEV 标签，开发调试不会影响已安装的正式版，两者可以同时运行。`make release`（以及 CI）构建的是正式版 **Spotcat**。
 
 只安装了 Command Line Tools 时没有 SwiftUI 宏插件，请用 `ObservableObject` 代替 `@State` / `@Observable`。
 

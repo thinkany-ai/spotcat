@@ -120,6 +120,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// 每次打开时重建，文案和快捷键随设置变化
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        // 第一行显示版本，区分正式版和开发版
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let title = NSMenuItem(title: "\(AppEnvironment.appName) \(version)", action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
+        menu.addItem(.separator())
         let open = NSMenuItem(title: L10n.t("menu.open", settings.shortcut.displayString), action: #selector(openLauncher), keyEquivalent: "")
         open.target = self
         menu.addItem(open)

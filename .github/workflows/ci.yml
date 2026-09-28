@@ -18,7 +18,7 @@ jobs:
           swift --version
 
       - name: Build universal app (unsigned)
-        run: ./scripts/bundle.sh release --universal
+        run: SPOTCAT_CHANNEL=release ./scripts/bundle.sh release --universal
 
       - name: Archive
         run: ditto -c -k --keepParent build/Spotcat.app Spotcat-unsigned.zip
