@@ -106,14 +106,14 @@ make run          # 编译 → build/Spotcat.app（ad-hoc 签名）→ 启动
 
 ## 发布
 
-维护者修改 `Resources/Info.plist` 中的 `CFBundleShortVersionString`，然后推送标签：
+维护者一条命令发布新版本：
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+./scripts/new-version.sh 0.3.0        # 预发布用 0.3.0-beta.1
 ```
 
-[`release.yml`](.github/workflows/release.yml) 会构建通用二进制、用 Developer ID 证书签名、公证并 staple App 与 DMG，
-然后上传到 GitHub Release 草稿。本地用 `make release` 执行同样的流程。签名凭据用
+它会修改 `Resources/Info.plist` 的版本号、提交、打 `v0.3.0` 标签并推送。随后 [`release.yml`](.github/workflows/release.yml)
+构建通用二进制、用 Developer ID 证书签名、公证并 staple App 与 DMG，发布 GitHub Release（附 DMG、ZIP 和 SHA-256 校验）。本地用 `make release` 执行同样的流程。签名凭据用
 [`scripts/setup-release-secrets.sh`](scripts/setup-release-secrets.sh) 一次性设置到仓库 Secrets。
 
 ## 参与贡献

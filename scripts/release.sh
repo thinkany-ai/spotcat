@@ -9,7 +9,8 @@
 #
 # 用法：
 #   ./scripts/release.sh             产物输出到 dist/
-#   ./scripts/release.sh --publish   另外创建 GitHub Release 草稿 v<版本> 并上传产物（需要 gh 已登录）
+#   ./scripts/release.sh --publish   另外发布 GitHub Release v<版本> 并上传产物（需要 gh 已登录）；
+#                                    版本号带 "-"（如 0.3.0-beta.1）时标记为预发布
 #
 # 版本号取自 Resources/Info.plist 的 CFBundleShortVersionString。
 set -euo pipefail
@@ -70,8 +71,10 @@ if [ "$PUBLISH" = "--publish" ]; then
     echo "==> Upload to existing GitHub Release v$VERSION"
     gh release upload "v$VERSION" "$DMG" "$ZIP" "$DIST/SHA256SUMS.txt" --clobber
   else
-    echo "==> Create draft GitHub Release v$VERSION"
+    echo "==> Publish GitHub Release v$VERSION"
+    PRERELEASE=()
+    [[ "$VERSION" == *-* ]] && PRERELEASE=(--prerelease)
     gh release create "v$VERSION" "$DMG" "$ZIP" "$DIST/SHA256SUMS.txt" \
-      --draft --title "Spotcat v$VERSION" --generate-notes
+      --title "Spotcat v$VERSION" --generate-notes ${PRERELEASE[@]+"${PRERELEASE[@]}"}
   fi
 fi

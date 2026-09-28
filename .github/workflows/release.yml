@@ -1,8 +1,8 @@
 name: Release
 
-# 推送 v* 标签：构建通用二进制 → Developer ID 签名 → 公证 → staple → 上传到 GitHub Release 草稿。
-# 发布步骤：修改 Resources/Info.plist 的 CFBundleShortVersionString，然后
-#   git tag v<版本> && git push origin v<版本>
+# 推送 v* 标签：构建通用二进制 → Developer ID 签名 → 公证 → staple → 发布 GitHub Release（附 DMG、ZIP、SHA256）。
+# 版本号带 "-"（如 v0.3.0-beta.1）时发布为预发布。
+# 发布新版本：./scripts/new-version.sh 0.3.0（修改版本号、提交、打标签并推送）
 # 手动触发（workflow_dispatch）只构建并上传 Actions artifact，不创建 Release。
 #
 # 需要的 Secrets（见 scripts/setup-release-secrets.sh）：

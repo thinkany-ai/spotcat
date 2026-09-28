@@ -138,15 +138,16 @@ scripts/                         bundle, release, icons, release secrets
 
 ## Releasing
 
-Maintainers bump `CFBundleShortVersionString` in `Resources/Info.plist`, then push a tag:
+Maintainers release with one command:
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+./scripts/new-version.sh 0.3.0        # or 0.3.0-beta.1 for a pre-release
 ```
 
-[`release.yml`](.github/workflows/release.yml) builds a universal binary, signs it with the
-Developer ID certificate, notarizes and staples the app and DMG, and attaches them to a draft
-GitHub Release. The same steps run locally with `make release`. Signing secrets are configured
+It bumps the version in `Resources/Info.plist`, commits, tags `v0.3.0` and pushes.
+[`release.yml`](.github/workflows/release.yml) then builds a universal binary, signs it with the
+Developer ID certificate, notarizes and staples the app and DMG, and publishes a GitHub Release
+with the DMG, ZIP and SHA-256 checksums. The same steps run locally with `make release`. Signing secrets are configured
 once with [`scripts/setup-release-secrets.sh`](scripts/setup-release-secrets.sh).
 
 ## Contributing
