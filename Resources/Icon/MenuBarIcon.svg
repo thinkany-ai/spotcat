@@ -3,7 +3,7 @@
   <defs>
     <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <rect width="100" height="100" fill="#fff"/>
-      <polyline points="38,30 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
+      <polyline points="40,20 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
     </mask>
   </defs>
   <g mask="url(#cut)">
