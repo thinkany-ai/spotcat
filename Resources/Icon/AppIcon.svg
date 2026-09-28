@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Spotcat：猫耳轮廓 + 「>」指令符（负空间），橙色渐变底 -->
+  <!-- Spotcat：猫耳轮廓 + 「>」指令符（负空间），陶土橙红渐变底 -->
   <defs>
     <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
       <rect width="100" height="100" fill="#fff"/>
       <polyline points="40,20 66,56 40,92" fill="none" stroke="#000" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="10"/>
     </mask>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFB25C"/>
-      <stop offset="0.55" stop-color="#FF8A2A"/>
-      <stop offset="1" stop-color="#FF6F14"/>
+      <stop offset="0" stop-color="#E99A7E"/>
+      <stop offset="0.55" stop-color="#DB7A58"/>
+      <stop offset="1" stop-color="#C9603D"/>
     </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.22"/>
