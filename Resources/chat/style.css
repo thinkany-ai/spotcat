@@ -7,7 +7,7 @@
   --hover: rgba(0, 0, 0, 0.06);
   --border: rgba(0, 0, 0, 0.08);
   --code: rgba(0, 0, 0, 0.05);
-  --accent: #007AFF;
+  --accent: #F65E6A;
   --on-accent: #fff;
   --error: #DC2626;
 }
@@ -21,7 +21,7 @@
     --hover: rgba(255, 255, 255, 0.08);
     --border: rgba(255, 255, 255, 0.1);
     --code: rgba(255, 255, 255, 0.07);
-    --accent: #0A84FF;
+    --accent: #FF6F7A;
     --on-accent: #fff;
     --error: #F87171;
   }
