@@ -56,7 +56,7 @@ struct ModelsConfig: Codable, Equatable {
         Preset(id: "openrouter", label: "OpenRouter", kind: .openai, apiBase: "https://openrouter.ai/api", model: "xiaomi/mimo-v2.5"),
         Preset(id: "deepseek", label: "DeepSeek", kind: .openai, apiBase: "https://api.deepseek.com", model: "deepseek-v4-flash"),
         Preset(id: "minimax", label: "MiniMax", kind: .anthropic, apiBase: "https://api.minimax.io/anthropic", model: "MiniMax-M3"),
-        Preset(id: "glm", label: "GLM Coding Plan", kind: .anthropic, apiBase: "https://api.z.ai/api/anthropic", model: "GLM-5.2"),
+        Preset(id: "glm", label: "Z.AI", kind: .anthropic, apiBase: "https://api.z.ai/api/anthropic", model: "GLM-5.2"),
         Preset(id: "custom", label: "", kind: .openai, apiBase: "", model: ""),
     ]
 

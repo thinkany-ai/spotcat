@@ -107,3 +107,29 @@ extension NSImage {
         }
     }
 }
+
+/// 圆角色块标签，文字在色块内水平、垂直居中
+/// （直接给 NSTextField 设背景时文字贴在顶部，不会垂直居中）
+final class BadgeView: NSView {
+    private let label: NSTextField
+
+    init(text: String, color: NSColor) {
+        label = NSTextField(labelWithString: text)
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = color.cgColor
+        layer?.cornerRadius = 5
+        label.font = .systemFont(ofSize: 11, weight: .bold)
+        label.textColor = .black
+        label.alignment = .center
+        addSubview(label)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        let height = label.intrinsicContentSize.height
+        label.frame = NSRect(x: 0, y: ((bounds.height - height) / 2).rounded(), width: bounds.width, height: height)
+    }
+}
