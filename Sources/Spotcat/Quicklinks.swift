@@ -33,6 +33,16 @@ struct Quicklink: Codable, Equatable, Identifiable {
 
     static let defaults: [Quicklink] = [
         Quicklink(id: "google", name: "Google", keyword: "g", url: "https://www.google.com/search?q={query}"),
+        Quicklink(id: "bing", name: "Bing", keyword: "bing", url: "https://www.bing.com/search?q={query}"),
+        Quicklink(id: "chatgpt", name: "ChatGPT", keyword: "gpt", url: "https://chatgpt.com/?q={query}"),
+        Quicklink(id: "github", name: "GitHub", keyword: "gh", url: "https://github.com/search?q={query}"),
+        Quicklink(id: "x", name: "X", keyword: "x", url: "https://x.com/search?q={query}"),
+        Quicklink(id: "youtube", name: "YouTube", keyword: "yt", url: "https://www.youtube.com/results?search_query={query}"),
+    ]
+
+    /// 0.2.0 及之前的默认列表；用户保存的列表与之完全相同时视为未自定义，升级到新默认值
+    static let legacyDefaults: [Quicklink] = [
+        Quicklink(id: "google", name: "Google", keyword: "g", url: "https://www.google.com/search?q={query}"),
         Quicklink(id: "baidu", name: "百度", keyword: "bd", url: "https://www.baidu.com/s?wd={query}"),
         Quicklink(id: "bing", name: "Bing", keyword: "bing", url: "https://www.bing.com/search?q={query}"),
         Quicklink(id: "github", name: "GitHub", keyword: "gh", url: "https://github.com/search?q={query}"),

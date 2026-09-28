@@ -427,39 +427,10 @@ private struct Badge: View {
 
 struct QuicklinksSettingsView: View {
     @ObservedObject var store: SettingsStore
+    @ObservedObject var navigation: SettingsNavigation
 
     var body: some View {
         Form {
-            Section {
-                ForEach($store.quicklinks) { $link in
-                    HStack(spacing: 8) {
-                        QuicklinkIcon(host: link.host)
-                        TextField(L10n.t("quicklinks.name"), text: $link.name, prompt: Text(L10n.t("quicklinks.name")))
-                            .frame(width: 110)
-                        TextField(L10n.t("quicklinks.keyword"), text: $link.keyword, prompt: Text(L10n.t("quicklinks.keyword")))
-                            .frame(width: 70)
-                        TextField(L10n.t("quicklinks.url"), text: $link.url, prompt: Text(verbatim: "https://example.com/search?q={query}"))
-                        Button {
-                            store.removeQuicklink(link.id)
-                        } label: {
-                            Image(systemName: "minus.circle.fill")
-                        }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(.secondary)
-                    }
-                    .labelsHidden()
-                    .textFieldStyle(.roundedBorder)
-                }
-
-                HStack {
-                    Button(L10n.t("quicklinks.add"), action: store.addQuicklink)
-                    Spacer()
-                    Button(L10n.t("quicklinks.reset"), action: store.resetQuicklinks)
-                }
-            } footer: {
-                SettingsFooter(L10n.t("quicklinks.footer"))
-            }
-
             Section {
                 Picker(L10n.t("quicklinks.searchEngine"), selection: $store.defaultSearchEngine) {
                     Text(L10n.t("quicklinks.none")).tag("")
@@ -470,8 +441,126 @@ struct QuicklinksSettingsView: View {
             } footer: {
                 SettingsFooter(L10n.t("quicklinks.searchEngineFooter"))
             }
+
+            Section {
+                ForEach($store.quicklinks) { $link in
+                    if navigation.editingQuicklink == link.id {
+                        QuicklinkEditor(link: $link) { navigation.editingQuicklink = nil }
+                    } else {
+                        QuicklinkRow(link: link,
+                                     onEdit: { navigation.editingQuicklink = link.id },
+                                     onDelete: { store.removeQuicklink(link.id) })
+                    }
+                }
+            } header: {
+                HStack {
+                    Text(L10n.t("settings.tab.quicklinks"))
+                    Spacer()
+                    Button(L10n.t("quicklinks.reset")) {
+                        navigation.editingQuicklink = nil
+                        store.resetQuicklinks()
+                    }
+                    .buttonStyle(.borderless)
+                    Button {
+                        navigation.editingQuicklink = store.addQuicklink()
+                    } label: {
+                        Label(L10n.t("quicklinks.add"), systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            } footer: {
+                SettingsFooter(L10n.t("quicklinks.footer"))
+            }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// 列表中的一行：图标、名称、关键词、网址（只读），右侧编辑/删除
+private struct QuicklinkRow: View {
+    let link: Quicklink
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            QuicklinkIcon(host: link.host)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(link.name.isEmpty ? L10n.t("quicklinks.untitled") : link.name)
+                        .fontWeight(.medium)
+                    if !link.keyword.isEmpty {
+                        Text(link.keyword)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(link.url)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 12)
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.t("quicklinks.edit"))
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help(L10n.t("quicklinks.delete"))
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: onEdit)
+    }
+}
+
+/// 展开编辑的一行
+private struct QuicklinkEditor: View {
+    @Binding var link: Quicklink
+    let onDone: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                GridRow {
+                    Text(L10n.t("quicklinks.name")).foregroundStyle(.secondary)
+                    TextField("", text: $link.name, prompt: Text(verbatim: "GitHub"))
+                }
+                GridRow {
+                    Text(L10n.t("quicklinks.keyword")).foregroundStyle(.secondary)
+                    TextField("", text: $link.keyword, prompt: Text(verbatim: "gh"))
+                        .frame(maxWidth: 140)
+                }
+                GridRow {
+                    Text(L10n.t("quicklinks.url")).foregroundStyle(.secondary)
+                    TextField("", text: $link.url, prompt: Text(verbatim: "https://example.com/search?q={query}"))
+                }
+            }
+            .textFieldStyle(.roundedBorder)
+            .labelsHidden()
+
+            HStack {
+                QuicklinkIcon(host: link.host)
+                Text(link.resolvedURL(query: "spotcat")?.absoluteString ?? "")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Button(L10n.t("quicklinks.done"), action: onDone)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(.vertical, 6)
     }
 }
 

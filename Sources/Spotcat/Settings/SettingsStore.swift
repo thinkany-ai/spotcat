@@ -184,8 +184,9 @@ final class SettingsStore: ObservableObject {
         avatar = NSImage(contentsOf: Self.avatarURL)
         disabledExtensions = Set(UserDefaults.standard.stringArray(forKey: Self.disabledExtensionsKey) ?? [])
         disabledFeatures = Set(UserDefaults.standard.stringArray(forKey: Self.disabledFeaturesKey) ?? [])
-        quicklinks = UserDefaults.standard.data(forKey: Self.quicklinksKey)
-            .flatMap { try? JSONDecoder().decode([Quicklink].self, from: $0) } ?? Quicklink.defaults
+        let savedQuicklinks = UserDefaults.standard.data(forKey: Self.quicklinksKey)
+            .flatMap { try? JSONDecoder().decode([Quicklink].self, from: $0) }
+        quicklinks = savedQuicklinks == nil || savedQuicklinks == Quicklink.legacyDefaults ? Quicklink.defaults : savedQuicklinks!
         defaultSearchEngine = UserDefaults.standard.string(forKey: Self.searchEngineKey) ?? "google"
         let defaults = UserDefaults.standard
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
@@ -268,8 +269,12 @@ final class SettingsStore: ObservableObject {
         quicklinks.first { $0.id == defaultSearchEngine && $0.acceptsQuery }
     }
 
-    func addQuicklink() {
-        quicklinks.append(Quicklink(id: UUID().uuidString, name: "", keyword: "", url: "https://"))
+    /// 返回新条目的 id，设置页据此直接进入编辑
+    @discardableResult
+    func addQuicklink() -> String {
+        let id = UUID().uuidString
+        quicklinks.append(Quicklink(id: id, name: "", keyword: "", url: "https://"))
+        return id
     }
 
     func removeQuicklink(_ id: String) {

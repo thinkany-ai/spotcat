@@ -36,6 +36,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 /// 当前选中的标签页（Command Line Tools 没有 SwiftUI 宏，不能用 @State）
 final class SettingsNavigation: ObservableObject {
     @Published var selection: SettingsTab? = .general
+    /// 快捷链接页正在编辑的条目
+    @Published var editingQuicklink: String?
 }
 
 final class SettingsWindowController {
@@ -141,7 +143,7 @@ struct SettingsRootView: View {
         switch tab {
         case .general: GeneralSettingsView(store: store, recorder: recorder)
         case .extensions: ExtensionsSettingsView(store: store, manager: .shared)
-        case .quicklinks: QuicklinksSettingsView(store: store)
+        case .quicklinks: QuicklinksSettingsView(store: store, navigation: navigation)
         case .profile: ProfileSettingsView(store: store)
         case .ai: AISettingsView(store: store)
         case .about: AboutSettingsView()
@@ -235,6 +237,7 @@ struct SettingsFooter: View {
         Text(text)
             .font(.callout)
             .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
