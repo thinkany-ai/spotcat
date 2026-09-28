@@ -68,7 +68,11 @@ final class SettingsWindowController {
 
         if window == nil {
             let root = SettingsRootView(store: store, navigation: navigation, recorder: recorder)
-            let window = NSWindow(contentViewController: NSHostingController(rootView: root))
+            let hosting = NSHostingController(rootView: root)
+            // 窗口尺寸由下面手动设置：按内容理想尺寸计算时会把标题栏安全区算进去，
+            // 而内容延伸到标题栏下，结果窗口底部多出一截空白
+            hosting.sizingOptions = []
+            let window = NSWindow(contentViewController: hosting)
             window.title = L10n.t("settings.title")
             // 内容延伸到标题栏下，侧边栏一直到顶部（系统设置风格）
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
@@ -76,6 +80,7 @@ final class SettingsWindowController {
             window.titleVisibility = .hidden
             window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
+            window.setContentSize(NSSize(width: 800, height: 580))
             window.center()
             self.window = window
         }
@@ -123,7 +128,7 @@ struct SettingsRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(width: 800, height: 580)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         // 开关、按钮等控件使用主题色
         .tint(Theme.accent)
