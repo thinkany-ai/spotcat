@@ -43,8 +43,6 @@ final class SettingsNavigation: ObservableObject {
     /// 编辑中的模型列表原文（一行一个），完成或测试时才解析
     @Published var modelsDraft = ""
     @Published var providerTest: ProviderTest?
-    /// 模型页的提示（如导入结果）
-    @Published var modelsNotice: String?
 
     enum ProviderTest: Equatable {
         case running

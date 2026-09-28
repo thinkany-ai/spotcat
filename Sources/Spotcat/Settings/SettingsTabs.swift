@@ -205,6 +205,8 @@ struct ModelsSettingsView: View {
                             navigation.editingProvider = nil
                             navigation.providerTest = nil
                         }
+                        // 每个服务商用独立的编辑视图：复用时分段控件等会把上一个服务商的值写到新服务商上
+                        .id(provider.id)
                     } else {
                         ProviderRow(provider: provider,
                                     onEdit: { beginEditing(provider) },
@@ -215,10 +217,6 @@ struct ModelsSettingsView: View {
                 HStack {
                     Text(L10n.t("models.providers"))
                     Spacer()
-                    if ModelsConfig.termanyAvailable {
-                        Button(L10n.t("models.importTermany"), action: importTermany)
-                            .buttonStyle(.borderless)
-                    }
                     Button {
                         let id = store.addModelProvider()
                         if let provider = store.models.providers.first(where: { $0.id == id }) { beginEditing(provider) }
@@ -226,10 +224,6 @@ struct ModelsSettingsView: View {
                         Label(L10n.t("models.addProvider"), systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
-                }
-            } footer: {
-                if let notice = navigation.modelsNotice {
-                    SettingsFooter(notice)
                 }
             }
         }
@@ -252,14 +246,6 @@ struct ModelsSettingsView: View {
         return text.split(whereSeparator: { $0 == "\n" || $0 == "," })
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
-    }
-
-    private func importTermany() {
-        if let count = store.importFromTermany() {
-            navigation.modelsNotice = count > 0 ? L10n.t("models.imported", count) : L10n.t("models.importedNone")
-        } else {
-            navigation.modelsNotice = L10n.t("models.importFailed")
-        }
     }
 }
 
@@ -333,42 +319,49 @@ private struct ProviderEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 9) {
+        VStack(alignment: .leading, spacing: 14) {
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
-                    Text(L10n.t("models.form.preset")).foregroundStyle(.secondary)
+                    label(L10n.t("models.form.preset"))
                     Picker("", selection: presetID) {
                         ForEach(ModelsConfig.presets, id: \.id) { preset in
                             Text(verbatim: preset.id == "custom" ? L10n.t("models.preset.custom") : preset.label).tag(preset.id)
                         }
                     }
-                    .labelsHidden()
-                    .frame(maxWidth: 220)
+                    .pickerStyle(.menu)
+                    .fixedSize()
                 }
                 GridRow {
-                    Text(L10n.t("models.form.kind")).foregroundStyle(.secondary)
+                    label(L10n.t("models.form.kind"))
                     Picker("", selection: $provider.kind) {
                         Text(L10n.t("models.kind.anthropic")).tag(ModelProvider.Kind.anthropic)
                         Text(L10n.t("models.kind.openai")).tag(ModelProvider.Kind.openai)
                     }
-                    .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(maxWidth: 260)
+                    .fixedSize()
                 }
                 GridRow {
-                    Text(L10n.t("models.form.name")).foregroundStyle(.secondary)
+                    label(L10n.t("models.form.name"))
                     TextField("", text: $provider.name, prompt: Text(L10n.t("models.form.namePlaceholder")))
                 }
                 GridRow {
-                    Text(verbatim: "Base URL").foregroundStyle(.secondary)
-                    TextField("", text: $provider.apiBase, prompt: Text(verbatim: ModelProvider.defaultBase[provider.kind] ?? ""))
+                    label("Base URL")
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("", text: $provider.apiBase, prompt: Text(verbatim: ModelProvider.defaultBase[provider.kind] ?? ""))
+                        Text(L10n.t("models.form.endpoint", provider.endpoint?.absoluteString ?? "—"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
                 }
                 GridRow {
-                    Text(verbatim: "API Key").foregroundStyle(.secondary)
+                    label("API Key")
                     SecureField("", text: $provider.apiKey, prompt: Text(verbatim: "sk-..."))
                 }
-                GridRow(alignment: .top) {
-                    Text(L10n.t("models.form.models")).foregroundStyle(.secondary).padding(.top, 3)
+                GridRow {
+                    label(L10n.t("models.form.models"))
                     TextField("", text: $navigation.modelsDraft,
                               prompt: Text(verbatim: provider.kind == .anthropic ? "claude-opus-4-8" : "deepseek-chat"),
                               axis: .vertical)
@@ -376,25 +369,30 @@ private struct ProviderEditor: View {
                 }
             }
             .textFieldStyle(.roundedBorder)
-            // Form 会把空标签的输入框按「标签 + 值」右对齐排版，这里显式隐藏标签、左对齐
+            // Form 会把空标签的控件按「标签 + 值」右对齐排版，这里显式隐藏标签、左对齐
             .labelsHidden()
             .multilineTextAlignment(.leading)
 
-            Text(L10n.t("models.form.endpoint", provider.endpoint?.absoluteString ?? "—"))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .textSelection(.enabled)
-
             HStack(spacing: 10) {
                 testStatus
-                Spacer()
+                Spacer(minLength: 12)
                 Button(L10n.t("models.test.run"), action: runTest)
                     .disabled(navigation.providerTest == .running)
                 Button(L10n.t("quicklinks.done"), action: onDone)
                     .keyboardShortcut(.defaultAction)
             }
         }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.08)))
         .padding(.vertical, 6)
+    }
+
+    /// 左侧标签列：右对齐成一列（macOS 表单惯例）
+    private func label(_ text: String) -> some View {
+        Text(text)
+            .foregroundStyle(.secondary)
+            .gridColumnAlignment(.trailing)
     }
 
     @ViewBuilder

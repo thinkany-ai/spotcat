@@ -61,7 +61,7 @@
 | `设置` / `settings` | 打开 Spotcat 设置 |
 
 **模型**：在「设置 › 模型」中添加服务商（Anthropic 或 OpenAI 兼容：OpenAI、OpenRouter、DeepSeek、MiniMax、GLM 等）、
-API Key 和模型，选择默认模型；也可以一键导入 [Termany](https://github.com/thinkany-ai/termany) 的模型设置。Key 保存在本机
+API Key 和模型，并选择默认模型。Key 保存在本机
 `~/Library/Application Support/Spotcat/models.json`（权限 600），只会发送给对应的服务商。
 
 ## 扩展

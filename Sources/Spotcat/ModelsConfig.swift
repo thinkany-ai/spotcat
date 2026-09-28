@@ -1,5 +1,4 @@
 import Foundation
-import SQLite3
 
 /// 模型服务商（BYOK，与 Termany 的模型设置同一结构）：接口格式 + 地址 + Key + 该服务商下可用的模型
 struct ModelProvider: Codable, Equatable, Identifiable {
@@ -99,32 +98,5 @@ struct ModelsConfig: Codable, Equatable {
         let config = ModelsConfig(providers: [provider], defaultModel: legacy.model.isEmpty ? "" : "\(provider.id)/\(legacy.model)")
         config.save()
         return config
-    }
-
-    // MARK: - 从 Termany 导入
-
-    static var termanyDatabase: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".termany/termany.db")
-    }
-
-    static var termanyAvailable: Bool {
-        FileManager.default.fileExists(atPath: termanyDatabase.path)
-    }
-
-    /// 读取 Termany 的模型设置（~/.termany/termany.db 的 app_meta.models，与其 models.json 同一格式）
-    static func readTermany() -> ModelsConfig? {
-        var db: OpaquePointer?
-        guard sqlite3_open_v2(termanyDatabase.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
-            sqlite3_close(db)
-            return nil
-        }
-        defer { sqlite3_close(db) }
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT value FROM app_meta WHERE key = 'models'", -1, &statement, nil) == SQLITE_OK else {
-            return nil
-        }
-        defer { sqlite3_finalize(statement) }
-        guard sqlite3_step(statement) == SQLITE_ROW, let text = sqlite3_column_text(statement, 0) else { return nil }
-        return try? JSONDecoder().decode(ModelsConfig.self, from: Data(String(cString: text).utf8))
     }
 }

@@ -70,8 +70,7 @@ Requires **macOS 13 Ventura** or later. System translation needs macOS 26.
 | `settings` / `设置` | Open Spotcat settings |
 
 **Models** — add providers (Anthropic or OpenAI-compatible: OpenAI, OpenRouter, DeepSeek, MiniMax,
-GLM …) with their API keys and models in *Settings › Models*, pick a default model, or import your
-[Termany](https://github.com/thinkany-ai/termany) model settings in one click. Keys are stored locally in
+GLM …) with their API keys and models in *Settings › Models* and pick a default model. Keys are stored locally in
 `~/Library/Application Support/Spotcat/models.json` (file mode 600) and only sent to their provider.
 
 ## Extensions

@@ -352,17 +352,4 @@ final class SettingsStore: ObservableObject {
         models.providers.removeAll { $0.id == id }
         normalizeDefaultModel()
     }
-
-    /// 导入 Termany 的服务商（跳过 id 已存在的），返回导入数量；读不到时返回 nil
-    func importFromTermany() -> Int? {
-        guard let termany = ModelsConfig.readTermany() else { return nil }
-        let existing = Set(models.providers.map(\.id))
-        let added = termany.providers.filter { !existing.contains($0.id) }
-        let hadModels = models.providers.contains { !$0.models.isEmpty }
-        models.providers.append(contentsOf: added)
-        // 之前没有任何模型时沿用 Termany 的默认模型
-        if !hadModels { models.defaultModel = termany.defaultModel }
-        normalizeDefaultModel()
-        return added.count
-    }
 }

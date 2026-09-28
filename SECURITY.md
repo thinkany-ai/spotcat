@@ -16,8 +16,7 @@ window to release a patch before any public disclosure.
 
 ## Scope notes
 
-- Spotcat is **BYOK**: model provider keys are entered by the user (or imported from Termany)
-  and stored locally in `~/Library/Application Support/Spotcat/models.json` (mode 600). They are never committed to this
+- Spotcat is **BYOK**: model provider keys are entered by the user and stored locally in `~/Library/Application Support/Spotcat/models.json` (mode 600). They are never committed to this
   repository or sent anywhere other than the provider the user configured.
 - Extensions run in a `WKWebView` and reach native features only through `window.spotcat`.
   Sensitive capabilities are gated by manifest permissions (`network`, `ai`). Reports about
