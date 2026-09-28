@@ -17,3 +17,12 @@ enum AppEnvironment {
             .appendingPathComponent(appName, isDirectory: true)
     }()
 }
+
+/// 对外链接。官网暂时指向 GitHub 仓库，有独立域名后改 website 即可
+enum AppLinks {
+    static let repository = URL(string: "https://github.com/thinkany-ai/spotcat")!
+    static let website = repository
+    static let issues = URL(string: "https://github.com/thinkany-ai/spotcat/issues/new")!
+    static let releases = URL(string: "https://github.com/thinkany-ai/spotcat/releases")!
+    static let releasesAPI = URL(string: "https://api.github.com/repos/thinkany-ai/spotcat/releases?per_page=20")!
+}

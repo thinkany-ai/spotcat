@@ -148,7 +148,7 @@ struct SettingsRootView: View {
         case .quicklinks: QuicklinksSettingsView(store: store, navigation: navigation)
         case .profile: ProfileSettingsView(store: store)
         case .ai: AISettingsView(store: store)
-        case .about: AboutSettingsView()
+        case .about: AboutSettingsView(store: store, updater: .shared)
         }
     }
 }

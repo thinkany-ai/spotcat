@@ -87,6 +87,7 @@ final class SettingsStore: ObservableObject {
     private static let searchEngineKey = "defaultSearchEngine"
     private static let showRecentsKey = "showRecents"
     private static let showSuggestionsKey = "showSuggestions"
+    private static let autoCheckUpdatesKey = "autoCheckUpdates"
 
     @Published private(set) var shortcut: Shortcut
     @Published var shortcutError: String?
@@ -146,6 +147,10 @@ final class SettingsStore: ObservableObject {
     @Published var showSuggestions: Bool {
         didSet { saveSearchOption(showSuggestions, Self.showSuggestionsKey) }
     }
+    @Published var autoCheckUpdates: Bool {
+        didSet { UserDefaults.standard.set(autoCheckUpdates, forKey: Self.autoCheckUpdatesKey) }
+    }
+
     /// 影响搜索结果的设置变化时回调（刷新面板）
     var onSearchOptionsChange: (() -> Void)?
 
@@ -187,6 +192,7 @@ final class SettingsStore: ObservableObject {
         let defaults = UserDefaults.standard
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
         showSuggestions = defaults.object(forKey: Self.showSuggestionsKey) as? Bool ?? true
+        autoCheckUpdates = defaults.object(forKey: Self.autoCheckUpdatesKey) as? Bool ?? true
         ai = AIConfig.load()
         refreshLaunchAtLogin()
     }

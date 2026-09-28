@@ -35,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupMainMenu()
         setupStatusItem()
 
+        Updater.shared.startAutomaticChecks()
+
         settings.onSearchOptionsChange = { [weak self] in
             self?.launcher.refreshResults()
         }
@@ -125,6 +127,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let title = NSMenuItem(title: "\(AppEnvironment.appName) \(version)", action: nil, keyEquivalent: "")
         title.isEnabled = false
         menu.addItem(title)
+        if let release = Updater.shared.availableRelease {
+            let update = NSMenuItem(title: L10n.t("update.menu", release.version), action: #selector(showUpdate), keyEquivalent: "")
+            update.target = self
+            menu.addItem(update)
+        }
         menu.addItem(.separator())
         let open = NSMenuItem(title: L10n.t("menu.open", settings.shortcut.displayString), action: #selector(openLauncher), keyEquivalent: "")
         open.target = self
@@ -150,6 +157,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func showSettings(tab: SettingsTab? = nil) {
         launcher.hide()
         settingsWindow.show(tab: tab)
+    }
+
+    @objc private func showUpdate() {
+        showSettings(tab: .about)
     }
 
     @objc func resetPosition() {

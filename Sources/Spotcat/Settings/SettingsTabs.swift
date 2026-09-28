@@ -217,9 +217,8 @@ struct AISettingsView: View {
 // MARK: - 关于
 
 struct AboutSettingsView: View {
-    private var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
-    }
+    @ObservedObject var store: SettingsStore
+    @ObservedObject var updater: Updater
 
     private var build: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
@@ -234,7 +233,7 @@ struct AboutSettingsView: View {
                         .frame(width: 72, height: 72)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(verbatim: AppEnvironment.appName).font(.title2.weight(.semibold))
-                        Text(L10n.t("about.version", version, build))
+                        Text(L10n.t("about.version", updater.currentVersion, build))
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                         Text(L10n.t("about.description"))
@@ -242,7 +241,29 @@ struct AboutSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
+            }
+
+            Section(L10n.t("update.section")) {
+                AboutRow(symbol: "arrow.triangle.2.circlepath", tint: Color(nsColor: .systemGreen),
+                         title: L10n.t("update.title"), subtitle: updateSubtitle) {
+                    updateAction
+                }
+                if case .downloading(let progress) = updater.status {
+                    ProgressView(value: progress).tint(Theme.accent)
+                }
+                if updater.status != .disabled {
+                    Toggle(L10n.t("update.auto"), isOn: $store.autoCheckUpdates)
+                }
+            }
+
+            Section(L10n.t("about.links")) {
+                linkRow(L10n.t("about.website"), AppLinks.website, symbol: "globe", tint: Color(nsColor: .systemBlue))
+                linkRow(L10n.t("about.source"), AppLinks.repository, symbol: "chevron.left.forwardslash.chevron.right",
+                        tint: Color(nsColor: .darkGray))
+                linkRow(L10n.t("about.feedback"), AppLinks.issues, symbol: "bubble.left.and.exclamationmark.bubble.right.fill",
+                        tint: Color(nsColor: .systemOrange), subtitle: L10n.t("about.feedbackHelp"))
+                linkRow(L10n.t("about.changelog"), AppLinks.releases, symbol: "doc.text.fill", tint: Color(nsColor: .systemTeal))
             }
 
             Section(L10n.t("about.folders")) {
@@ -253,33 +274,97 @@ struct AboutSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            if updater.status == .idle, !AppEnvironment.isDevelopment { updater.check() }
+        }
+    }
+
+    private var updateSubtitle: String {
+        switch updater.status {
+        case .idle: return L10n.t("update.idle", updater.currentVersion)
+        case .disabled: return L10n.t("update.disabled")
+        case .checking: return L10n.t("update.checking")
+        case .upToDate: return L10n.t("update.upToDate")
+        case .available(let release): return L10n.t("update.available", release.version)
+        case .downloading(let progress): return L10n.t("update.downloading", Int(progress * 100))
+        case .installing: return L10n.t("update.installing")
+        case .failed(let message): return L10n.t("update.failed", message)
+        }
+    }
+
+    @ViewBuilder
+    private var updateAction: some View {
+        switch updater.status {
+        case .available(let release):
+            HStack(spacing: 8) {
+                Button(L10n.t("update.releaseNotes")) { NSWorkspace.shared.open(release.pageURL) }
+                    .buttonStyle(.link)
+                Button(L10n.t("update.install", release.version)) { updater.install() }
+                    .buttonStyle(.borderedProminent)
+            }
+        case .checking, .downloading, .installing:
+            ProgressView().controlSize(.small)
+        case .disabled:
+            EmptyView()
+        default:
+            Button(L10n.t("update.check")) { updater.check() }
+        }
+    }
+
+    private func linkRow(_ title: String, _ url: URL, symbol: String, tint: Color, subtitle: String? = nil) -> some View {
+        AboutRow(symbol: symbol, tint: tint, title: title,
+                 subtitle: subtitle ?? url.absoluteString.replacingOccurrences(of: "https://", with: "")) {
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Image(systemName: "arrow.up.forward.square").font(.system(size: 15))
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help(L10n.t("about.open"))
+        }
     }
 
     private func folderRow(_ title: String, url: URL, symbol: String, tint: Color) -> some View {
-        HStack(spacing: 12) {
-            SettingsIconTile(symbol: symbol, tint: tint, size: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-            }
-            Spacer(minLength: 12)
+        AboutRow(symbol: symbol, tint: tint, title: title,
+                 subtitle: url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) {
             Button {
                 try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             } label: {
-                Image(systemName: "arrow.up.forward.square")
-                    .font(.system(size: 15))
+                Image(systemName: "arrow.up.forward.square").font(.system(size: 15))
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
             .help(L10n.t("about.showInFinder"))
         }
-        .padding(.vertical, 4)
+    }
+}
+
+/// 关于页的一行：彩色图标、标题、灰色说明，右侧操作
+private struct AboutRow<Accessory: View>: View {
+    let symbol: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    @ViewBuilder let accessory: () -> Accessory
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SettingsIconTile(symbol: symbol, tint: tint, size: 28)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 12)
+            accessory()
+        }
+        .padding(.vertical, 7)
     }
 }
 
