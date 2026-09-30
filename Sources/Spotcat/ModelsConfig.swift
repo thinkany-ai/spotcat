@@ -60,6 +60,14 @@ struct ModelsConfig: Codable, Equatable {
         Preset(id: "custom", label: "", kind: .openai, apiBase: "", model: ""),
     ]
 
+    /// 指定的 "服务商 id/模型名"；为空或已失效（服务商、模型被删除）时用默认模型
+    func resolve(_ id: String?) -> (provider: ModelProvider, model: String)? {
+        if let id, let hit = providers.lazy.flatMap({ p in p.models.map { (p, $0) } }).first(where: { "\($0.0.id)/\($0.1)" == id }) {
+            return hit
+        }
+        return resolvedDefault
+    }
+
     /// 当前默认模型；默认值失效时退回第一个可用模型
     var resolvedDefault: (provider: ModelProvider, model: String)? {
         let all = providers.flatMap { provider in provider.models.map { (provider, $0) } }
@@ -69,14 +77,12 @@ struct ModelsConfig: Codable, Equatable {
     // MARK: - 持久化（数据目录/models.json，权限 600）
 
     private static var fileURL: URL { AppEnvironment.dataDirectory.appendingPathComponent("models.json") }
-    /// 0.2 及之前的单服务商配置
-    private static var legacyURL: URL { AppEnvironment.dataDirectory.appendingPathComponent("ai.json") }
 
     static func load() -> ModelsConfig {
         if let data = try? Data(contentsOf: fileURL), let config = try? JSONDecoder().decode(ModelsConfig.self, from: data) {
             return config
         }
-        return migrateLegacy() ?? ModelsConfig()
+        return ModelsConfig()
     }
 
     func save() {
@@ -84,19 +90,5 @@ struct ModelsConfig: Codable, Equatable {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? JSONEncoder().encode(self) else { return }
         FileManager.default.createFile(atPath: url.path, contents: data, attributes: [.posixPermissions: 0o600])
-    }
-
-    /// 旧的 ai.json（单个 OpenAI 兼容服务商）转成服务商列表
-    private static func migrateLegacy() -> ModelsConfig? {
-        struct Legacy: Decodable { let preset: String; let baseURL: String; let apiKey: String; let model: String }
-        guard let data = try? Data(contentsOf: legacyURL),
-              let legacy = try? JSONDecoder().decode(Legacy.self, from: data),
-              !legacy.apiKey.isEmpty || !legacy.model.isEmpty else { return nil }
-        let name = URL(string: legacy.baseURL)?.host ?? "OpenAI Compatible"
-        let provider = ModelProvider(id: UUID().uuidString, name: name, kind: .openai, apiBase: legacy.baseURL,
-                                     apiKey: legacy.apiKey, models: legacy.model.isEmpty ? [] : [legacy.model])
-        let config = ModelsConfig(providers: [provider], defaultModel: legacy.model.isEmpty ? "" : "\(provider.id)/\(legacy.model)")
-        config.save()
-        return config
     }
 }

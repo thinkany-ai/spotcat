@@ -10,10 +10,25 @@
     <button class="icon-btn" id="back" data-i18n-title="back"></button>
     <div class="titles">
       <div class="title" id="title"></div>
-      <div class="subtitle" id="subtitle"></div>
+      <button class="model-picker" id="model-picker" data-i18n-title="switchModel">
+        <span class="subtitle" id="subtitle"></span>
+        <span class="model-chevron"></span>
+      </button>
     </div>
+    <button class="icon-btn" id="history-toggle" data-i18n-title="history"></button>
     <button class="icon-btn" id="new-chat" data-i18n-title="newChat"></button>
   </header>
+
+  <div id="history" class="history" hidden>
+    <div class="history-backdrop" id="history-backdrop"></div>
+    <aside class="history-panel">
+      <label class="history-search">
+        <span class="search-icon"></span>
+        <input id="history-search" type="search" data-i18n-placeholder="historySearch" spellcheck="false">
+      </label>
+      <div id="history-list" class="history-list"></div>
+    </aside>
+  </div>
 
   <main id="scroller">
     <section id="context" class="context" hidden>

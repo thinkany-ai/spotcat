@@ -68,9 +68,10 @@ final class ExtensionAPI {
             (NSApp.delegate as? AppDelegate)?.showSettings(tab: tab)
             reply(true, nil)
         case "ai.info":
-            let target = SettingsStore.shared.models.resolvedDefault
+            let target = SettingsStore.shared.models.resolve(args["model"] as? String)
             reply([
                 "configured": target?.provider.hasKey ?? false,
+                "id": target.map { "\($0.provider.id)/\($0.model)" } ?? "",
                 "model": target?.model ?? "",
                 "provider": target?.provider.name ?? "",
             ], nil)
@@ -134,10 +135,11 @@ final class ExtensionAPI {
             return ["role": role, "content": content]
         }
         let stream = args["stream"] as? Bool ?? false
+        let model = args["model"] as? String
 
         aiTasks[id] = Task { @MainActor [weak self] in
             do {
-                let text = try await AIService.shared.chat(messages: messages, onDelta: stream ? { delta in
+                let text = try await AIService.shared.chat(messages: messages, model: model, onDelta: stream ? { delta in
                     self?.emit?("ai.delta", ["id": id, "delta": delta])
                 } : nil)
                 reply(text, nil)

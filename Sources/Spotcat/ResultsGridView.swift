@@ -16,7 +16,7 @@ final class ResultsGridView: NSView {
     enum Metrics {
         static let columns = 9
         static let horizontalPadding: CGFloat = 12
-        static let tileHeight: CGFloat = 92
+        static let tileHeight: CGFloat = 80
         static let headerHeight: CGFloat = 36
         static let sectionSpacing: CGFloat = 6
         static let bottomPadding: CGFloat = 10
@@ -197,7 +197,7 @@ final class SectionHeaderView: NSView {
 
 final class ResultTileView: NSView {
     private let iconView = NSImageView()
-    private let nameLabel = NSTextField(wrappingLabelWithString: "")
+    private let nameLabel = NSTextField(labelWithString: "")
 
     var onClick: (() -> Void)?
     var isSelected = false {
@@ -211,9 +211,8 @@ final class ResultTileView: NSView {
         nameLabel.font = .systemFont(ofSize: 12)
         nameLabel.textColor = .labelColor
         nameLabel.alignment = .center
-        nameLabel.maximumNumberOfLines = 2
-        nameLabel.lineBreakMode = .byWordWrapping
-        nameLabel.cell?.truncatesLastVisibleLine = true
+        nameLabel.maximumNumberOfLines = 1
+        nameLabel.lineBreakMode = .byTruncatingTail
 
         addSubview(iconView)
         addSubview(nameLabel)
@@ -226,6 +225,7 @@ final class ResultTileView: NSView {
 
     func configure(name: String, icon: NSImage?) {
         nameLabel.stringValue = name
+        toolTip = name
         iconView.image = icon
         needsLayout = true
     }
@@ -234,7 +234,7 @@ final class ResultTileView: NSView {
         super.layout()
         let iconSize: CGFloat = 40
         iconView.frame = NSRect(x: (bounds.width - iconSize) / 2, y: 10, width: iconSize, height: iconSize)
-        nameLabel.frame = NSRect(x: 4, y: 56, width: bounds.width - 8, height: 32)
+        nameLabel.frame = NSRect(x: 4, y: 56, width: bounds.width - 8, height: 16)
     }
 
     override func draw(_ dirtyRect: NSRect) {

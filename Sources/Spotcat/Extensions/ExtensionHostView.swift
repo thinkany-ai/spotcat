@@ -65,12 +65,26 @@ extension NSColor {
 /// 进入扩展后替换搜索界面：顶部面包屑 + 扩展页面（WKWebView）。
 /// 每次进入新建 WebView，退出即销毁，扩展之间互不影响。
 final class ExtensionHostView: NSView {
-    static let headerHeight: CGFloat = 64
 
     var webView: WKWebView { bridge.webView }
     var onExit: (() -> Void)?
     var onHide: (() -> Void)?
     var onOpenChat: ((ChatRequest) -> Void)?
+    var onDetach: (() -> Void)?
+    var onPin: ((Bool) -> Void)?
+    /// 分离成独立窗口后顶栏放进透明标题栏，和红绿灯同一行
+    var headerStyle: BreadcrumbView.Style {
+        get { header.style }
+        set {
+            header.style = newValue
+            needsLayout = true
+        }
+    }
+    /// 独立窗口的标题：扩展名 · 功能名
+    let title: String
+    let icon: NSImage
+    /// 再次进入同一功能时，用来找到已分离的窗口
+    let featureID: String
 
     private let header: BreadcrumbView
     private let bridge: WebBridge
@@ -85,11 +99,11 @@ final class ExtensionHostView: NSView {
         ])
         api = ExtensionAPI(ext: ext)
         sourceName = ext.manifest.name
-        header = BreadcrumbView(
-            icon: ExtensionIcon.image(for: ext),
-            extensionName: ext.manifest.name,
-            featureTitle: feature.feature.title
-        )
+        // 只显示扩展名：扩展页面里通常有自己的标签页，进入时的功能名切换后就不准了
+        title = ext.manifest.name
+        icon = ExtensionIcon.image(for: ext)
+        featureID = feature.id
+        header = BreadcrumbView(icon: icon, extensionName: ext.manifest.name)
 
         super.init(frame: .zero)
 
@@ -98,6 +112,8 @@ final class ExtensionHostView: NSView {
             self?.handle(method: method, args: args, reply: reply) ?? false
         }
         header.onClose = { [weak self] in self?.onExit?() }
+        header.onDetach = { [weak self] in self?.onDetach?() }
+        header.onPin = { [weak self] pinned in self?.onPin?(pinned) }
 
         addSubview(header)
         addSubview(bridge.webView)
@@ -110,8 +126,9 @@ final class ExtensionHostView: NSView {
 
     override func layout() {
         super.layout()
-        header.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Self.headerHeight)
-        webView.frame = NSRect(x: 0, y: Self.headerHeight, width: bounds.width, height: bounds.height - Self.headerHeight)
+        let headerHeight = header.style.height
+        header.frame = NSRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
+        webView.frame = NSRect(x: 0, y: headerHeight, width: bounds.width, height: bounds.height - headerHeight)
     }
 
     func teardown() {
@@ -142,82 +159,161 @@ final class ExtensionHostView: NSView {
     }
 }
 
-/// 顶部面包屑：[图标 扩展名 / 功能名 ×]
+/// 扩展统一顶栏，样式与聊天页顶栏一致：
+/// - 启动器里：[‹ 图标 扩展名 · 功能名 ……… 分离]
+/// - 独立窗口里放进透明标题栏：[● ● ● 图标 扩展名 · 功能名 ……… 置顶]
 final class BreadcrumbView: NSView {
+    enum Style {
+        case launcher, titlebar
+
+        var height: CGFloat { self == .launcher ? 54 : 52 }
+        /// 与聊天页 .topbar 的 padding（14px 14px 8px 10px）对齐；标题栏里让出红绿灯，并和它垂直居中
+        fileprivate var leading: CGFloat { self == .launcher ? 10 : 80 }
+        fileprivate var top: CGFloat { self == .launcher ? 14 : 10 }
+    }
+
     var onClose: (() -> Void)?
+    var onDetach: (() -> Void)?
+    var onPin: ((Bool) -> Void)?
 
-    private let pill = NSView()
+    var style: Style = .launcher {
+        didSet { applyStyle() }
+    }
 
-    init(icon: NSImage, extensionName: String, featureTitle: String) {
+    private let back = HoverButton(image: BreadcrumbView.symbol("chevron.left"))
+    private let detach = HoverButton(image: BreadcrumbView.symbol("macwindow.on.rectangle"))
+    private let pin = HoverButton(image: BreadcrumbView.symbol("pin"))
+    private var isPinned = false
+    private var leadingConstraint: NSLayoutConstraint!
+    private var topConstraints: [NSLayoutConstraint] = []
+
+    init(icon: NSImage, extensionName: String) {
         super.init(frame: .zero)
 
-        pill.wantsLayer = true
-        pill.layer?.cornerRadius = 18
-        pill.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(pill)
+        back.target = self
+        back.action = #selector(closeClicked)
+        back.toolTip = L10n.t("extension.exit")
+        back.setAccessibilityLabel(L10n.t("extension.exit"))
+        detach.target = self
+        detach.action = #selector(detachClicked)
+        detach.toolTip = L10n.t("extension.detach")
+        detach.setAccessibilityLabel(L10n.t("extension.detach"))
+        pin.target = self
+        pin.action = #selector(pinClicked)
+        pin.toolTip = L10n.t("extension.pin")
+        pin.setAccessibilityLabel(L10n.t("extension.pin"))
 
         let iconView = NSImageView(image: icon)
         iconView.imageScaling = .scaleProportionallyUpOrDown
 
         let nameLabel = NSTextField(labelWithString: extensionName)
         nameLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        nameLabel.lineBreakMode = .byTruncatingTail
 
-        let slash = NSTextField(labelWithString: "/")
-        slash.font = .systemFont(ofSize: 15, weight: .light)
-        slash.textColor = .tertiaryLabelColor
-
-        let featureLabel = NSTextField(labelWithString: featureTitle)
-        featureLabel.font = .systemFont(ofSize: 15)
-        featureLabel.textColor = .secondaryLabelColor
-
-        let close = NSButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: L10n.t("extension.exit"))!, target: self, action: #selector(closeClicked))
-        close.isBordered = false
-        close.contentTintColor = .secondaryLabelColor
-        close.toolTip = L10n.t("extension.exit")
-
-        let stack = NSStackView(views: [iconView, nameLabel, slash, featureLabel, close])
+        let stack = NSStackView(views: [back, iconView, nameLabel])
         stack.orientation = .horizontal
-        stack.spacing = 8
-        stack.setCustomSpacing(12, after: featureLabel)
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 12)
+        stack.spacing = 6
+        stack.setCustomSpacing(4, after: back)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        pill.addSubview(stack)
+        addSubview(stack)
 
-        NSLayoutConstraint.activate([
-            iconView.widthAnchor.constraint(equalToConstant: 22),
-            iconView.heightAnchor.constraint(equalToConstant: 22),
-            pill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            pill.centerYAnchor.constraint(equalTo: centerYAnchor),
-            pill.heightAnchor.constraint(equalToConstant: 36),
-            stack.leadingAnchor.constraint(equalTo: pill.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: pill.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: pill.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: pill.bottomAnchor),
+        let trailing = NSStackView(views: [pin, detach])
+        trailing.orientation = .horizontal
+        trailing.spacing = 4
+        trailing.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(trailing)
+
+        leadingConstraint = stack.leadingAnchor.constraint(equalTo: leadingAnchor)
+        topConstraints = [
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            trailing.topAnchor.constraint(equalTo: topAnchor),
+        ]
+        NSLayoutConstraint.activate(topConstraints + [
+            leadingConstraint,
+            back.widthAnchor.constraint(equalToConstant: 32),
+            detach.widthAnchor.constraint(equalToConstant: 32),
+            pin.widthAnchor.constraint(equalToConstant: 32),
+            iconView.widthAnchor.constraint(equalToConstant: 20),
+            iconView.heightAnchor.constraint(equalToConstant: 20),
+            stack.heightAnchor.constraint(equalToConstant: 32),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailing.leadingAnchor, constant: -8),
+            trailing.heightAnchor.constraint(equalToConstant: 32),
+            trailing.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
         ])
+        applyStyle()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     override var mouseDownCanMoveWindow: Bool { true }
 
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        updatePillColor()
+    private func applyStyle() {
+        back.isHidden = style == .titlebar
+        detach.isHidden = style == .titlebar
+        pin.isHidden = style == .launcher
+        leadingConstraint.constant = style.leading
+        topConstraints.forEach { $0.constant = style.top }
     }
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        updatePillColor()
-    }
-
-    private func updatePillColor() {
-        // CGColor 不会跟随外观变化，切换深浅色时重新取
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            pill.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07).cgColor
-        }
+    fileprivate static func symbol(_ name: String) -> NSImage {
+        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
+        return NSImage(systemSymbolName: name, accessibilityDescription: nil)!
+            .withSymbolConfiguration(config)!
     }
 
     @objc private func closeClicked() {
         onClose?()
+    }
+
+    @objc private func detachClicked() {
+        onDetach?()
+    }
+
+    @objc private func pinClicked() {
+        isPinned.toggle()
+        pin.image = Self.symbol(isPinned ? "pin.fill" : "pin")
+        pin.isActive = isPinned
+        pin.toolTip = L10n.t(isPinned ? "extension.unpin" : "extension.pin")
+        onPin?(isPinned)
+    }
+}
+
+/// 无边框图标按钮，悬停时显示圆角底色（对应聊天页的 .icon-btn:hover）
+private final class HoverButton: NSButton {
+    private var hovering = false { didSet { updateAppearance() } }
+    /// 开关按钮打开时保持高亮（对应聊天页的 .icon-btn.active）
+    var isActive = false { didSet { updateAppearance() } }
+
+    convenience init(image: NSImage) {
+        self.init(frame: .zero)
+        self.image = image
+        isBordered = false
+        imagePosition = .imageOnly
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        updateAppearance()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateAppearance()
+    }
+
+    private func updateAppearance() {
+        let highlighted = hovering || isActive
+        contentTintColor = highlighted ? .labelColor : .secondaryLabelColor
+        // CGColor 不会跟随外观变化，切换深浅色时重新取
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = highlighted ? NSColor.labelColor.withAlphaComponent(0.07).cgColor : nil
+        }
     }
 }

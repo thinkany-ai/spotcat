@@ -49,9 +49,9 @@ struct GeneralSettingsView: View {
 
                 LabeledContent(L10n.t("settings.shortcut.open")) {
                     HStack(spacing: 6) {
-                        if store.shortcut != .default {
+                        if !store.isAutomaticShortcut {
                             Button {
-                                store.updateShortcut(.default)
+                                store.useAutomaticShortcut()
                             } label: {
                                 Image(systemName: "arrow.counterclockwise")
                             }
@@ -64,6 +64,18 @@ struct GeneralSettingsView: View {
 
                 if let error = store.shortcutError {
                     Text(error).font(.callout).foregroundStyle(.red)
+                } else if store.isAutomaticShortcut, let owner = store.defaultShortcutOwner {
+                    HStack {
+                        Text(L10n.t("settings.shortcut.defaultTaken", Shortcut.default.displayString, owner.name, store.shortcut.displayString))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if owner != .spotcat {
+                            Button(L10n.t("settings.shortcut.useDefault", Shortcut.default.displayString)) {
+                                (NSApp.delegate as? AppDelegate)?.showDefaultShortcutPrompt(owner: owner, allowSuppress: false)
+                            }
+                        }
+                    }
                 }
             }
 

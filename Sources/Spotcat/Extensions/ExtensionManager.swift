@@ -95,7 +95,10 @@ final class ExtensionManager: ObservableObject {
     }
 
     private static var builtInDirectory: URL? {
-        Bundle.main.resourceURL?.appendingPathComponent("Extensions", isDirectory: true)
+        if let root = AppEnvironment.sourceRoot {
+            return root.appendingPathComponent("extensions", isDirectory: true)
+        }
+        return Bundle.main.resourceURL?.appendingPathComponent("Extensions", isDirectory: true)
     }
 
     /// 所有功能（含已禁用的），设置页使用

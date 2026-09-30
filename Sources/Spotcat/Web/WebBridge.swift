@@ -10,6 +10,7 @@ final class WebBridge: NSObject {
     var handler: ((String, [String: Any], @escaping Reply) -> Bool)?
 
     private let proxy = MessageProxy()
+    private var devReloadObserver: NSObjectProtocol?
 
     /// context 会以 JSON 注入页面：enter（进入参数）、i18n（locale + messages）
     init(context: [String: Any]) {
@@ -22,13 +23,39 @@ final class WebBridge: NSObject {
         ))
         contentController.addScriptMessageHandler(proxy, contentWorld: .page, name: "spotcat")
 
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = DraggableWebView(frame: .zero, configuration: config)
         // 透明背景，让面板的毛玻璃透出来
         webView.setValue(false, forKey: "drawsBackground")
 
         super.init()
         proxy.bridge = self
         webView.navigationDelegate = self
+        observeDevReload()
+    }
+
+    deinit {
+        if let devReloadObserver { NotificationCenter.default.removeObserver(devReloadObserver) }
+    }
+
+    /// make dev：源码里的页面文件改动后刷新。只改了 CSS 时就地替换样式表，页面状态（如对话内容）保留
+    private func observeDevReload() {
+        guard DevReload.start() else { return }
+        devReloadObserver = NotificationCenter.default.addObserver(forName: DevReload.didChange, object: nil, queue: .main) { [weak self] note in
+            guard let self, let page = self.webView.url, page.isFileURL else { return }
+            let paths = note.userInfo?[DevReload.pathsKey] as? [String] ?? []
+            let pageDirectory = page.deletingLastPathComponent().path + "/"
+            let related = paths.filter { $0.hasPrefix(pageDirectory) }
+            guard !related.isEmpty else { return }
+            if related.allSatisfy({ $0.hasSuffix(".css") }) {
+                self.webView.evaluateJavaScript("""
+                    document.querySelectorAll('link[rel="stylesheet"]').forEach(l => {
+                      l.href = l.href.split('?')[0] + '?' + Date.now()
+                    })
+                    """)
+            } else {
+                self.webView.reload()
+            }
+        }
     }
 
     func load(_ url: URL, readAccess: URL) {
@@ -48,6 +75,10 @@ final class WebBridge: NSObject {
     }
 
     fileprivate func receive(method: String, args: [String: Any], reply: @escaping Reply) {
+        if method == "window.drag" {
+            (webView as? DraggableWebView)?.dragWindow()
+            return reply(true, nil)
+        }
         if handler?(method, args, reply) != true {
             reply(nil, "Unknown method \(method)")
         }
@@ -80,5 +111,22 @@ private final class MessageProxy: NSObject, WKScriptMessageHandlerWithReply {
         }
         guard let bridge else { return replyHandler(nil, "Page closed") }
         bridge.receive(method: method, args: body["args"] as? [String: Any] ?? [:], reply: replyHandler)
+    }
+}
+
+/// 网页会吞掉鼠标事件，窗口没法按背景拖动。页面在可拖动区域按下鼠标时调用 "window.drag"，
+/// 这里用记下的那次按下事件让窗口跟着鼠标走（与 Tauri 的 drag region 同一做法）
+final class DraggableWebView: WKWebView {
+    private var lastMouseDown: NSEvent?
+
+    override func mouseDown(with event: NSEvent) {
+        lastMouseDown = event
+        super.mouseDown(with: event)
+    }
+
+    func dragWindow() {
+        // 消息是异步到达的，鼠标已经松开就不拖了
+        guard let event = lastMouseDown, NSEvent.pressedMouseButtons & 1 == 1 else { return }
+        window?.performDrag(with: event)
     }
 }

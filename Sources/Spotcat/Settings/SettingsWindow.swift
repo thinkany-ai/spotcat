@@ -180,14 +180,14 @@ private struct SidebarRow: View {
                 SettingsIconTile(symbol: tab.icon, tint: tab.tint)
                 Text(tab.title)
                     .font(.system(size: 13))
-                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .foregroundStyle(Color.primary)
                 Spacer()
             }
             .padding(.horizontal, 8)
             .frame(height: 32)
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(isSelected ? Theme.accent : Color.clear)
+                    .fill(isSelected ? Color.primary.opacity(0.08) : Color.clear)
             )
             .contentShape(Rectangle())
         }
@@ -214,13 +214,13 @@ private struct ProfileCard: View {
                         .opacity(0.7)
                         .lineLimit(1)
                 }
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .foregroundStyle(Color.primary)
                 Spacer()
             }
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 9)
-                    .fill(isSelected ? Theme.accent : Color.primary.opacity(0.05))
+                    .fill(Color.primary.opacity(isSelected ? 0.1 : 0.05))
             )
             .contentShape(Rectangle())
         }

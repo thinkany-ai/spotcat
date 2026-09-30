@@ -9,6 +9,13 @@ enum AppEnvironment {
         (Bundle.main.object(forInfoDictionaryKey: "SpotcatChannel") as? String) != "release"
     }()
 
+    /// make dev 通过环境变量 SPOTCAT_SOURCE_ROOT 传入仓库路径：内置聊天面板和扩展直接从源码目录加载，
+    /// 改动后自动刷新（DevReload），不用重新打包
+    static let sourceRoot: URL? = {
+        guard isDevelopment, let path = ProcessInfo.processInfo.environment["SPOTCAT_SOURCE_ROOT"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }()
+
     static var appName: String { isDevelopment ? "Spotcat Dev" : "Spotcat" }
 
     /// ~/Library/Application Support/Spotcat（正式版）或 Spotcat Dev（开发版）

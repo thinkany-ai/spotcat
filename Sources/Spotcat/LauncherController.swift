@@ -46,6 +46,8 @@ final class LauncherController: NSObject {
     private var activeHost: ExtensionHostView?
     /// 聊天面板盖在扩展（或搜索）之上，返回时回到原处
     private var chatView: ChatView?
+    /// 开发版标签，只在搜索界面显示（扩展和聊天有自己的顶栏按钮）
+    private var devBadge: BadgeView?
     private var lastHiddenAt: Date?
     private let iconCache = NSCache<NSString, NSImage>()
     /// 区分代码设置 frame 和用户拖动，只保存后者
@@ -104,6 +106,7 @@ final class LauncherController: NSObject {
     /// 语言切换：重新加载扩展（名称、关键词随语言变化）并刷新界面文案
     func localeDidChange() {
         extensions.reload()
+        index.invalidate()
         iconCache.removeAllObjects()
         searchField.placeholderString = L10n.t("search.placeholder")
         search()
@@ -170,6 +173,7 @@ final class LauncherController: NSObject {
             badge.autoresizingMask = [.minXMargin]
             badge.toolTip = AppEnvironment.appName
             container.addSubview(badge)
+            devBadge = badge
         }
 
         searchField.frame = NSRect(x: Layout.horizontalPadding, y: (Layout.searchHeight - 34) / 2,
@@ -210,8 +214,8 @@ final class LauncherController: NSObject {
                 return true
             }
             guard event.keyCode == UInt16(kVK_Escape), modifiers.isEmpty else { return false }
-            if self.chatView != nil {
-                self.closeChat()
+            if let chat = self.chatView {
+                chat.handleEscape { [weak self] in self?.closeChat() }
             } else {
                 self.exitExtension()
             }
@@ -505,6 +509,12 @@ final class LauncherController: NSObject {
 
     private func enterExtension(_ feature: ExtensionFeatureRef, trigger: EnterTrigger) {
         guard activeHost == nil, let ext = extensions.owner(of: feature) else { return }
+        // 这个功能已经分离成独立窗口：切过去，不在启动器里再开一份
+        if let window = DetachedExtensionWindow.window(forFeature: feature.id) {
+            hide()
+            window.bringToFront()
+            return
+        }
         let raw = searchField.stringValue
         let payload = trigger == .match ? raw.trimmingCharacters(in: .whitespacesAndNewlines) : raw
 
@@ -512,6 +522,7 @@ final class LauncherController: NSObject {
         host.onExit = { [weak self] in self?.exitExtension() }
         host.onHide = { [weak self] in self?.hide() }
         host.onOpenChat = { [weak self] request in self?.openChat(request) }
+        host.onDetach = { [weak self] in self?.detachExtension() }
         activeHost = host
         setSearchChromeHidden(true)
 
@@ -532,6 +543,22 @@ final class LauncherController: NSObject {
         search()
         panel.makeFirstResponder(searchField)
         searchField.currentEditor()?.selectAll(nil)
+    }
+
+    /// 把当前扩展搬到独立窗口，启动器回到搜索并隐藏
+    private func detachExtension() {
+        guard let host = activeHost, chatView == nil else { return }
+        let frame = panel.frame
+        host.removeFromSuperview()
+        activeHost = nil
+        setSearchChromeHidden(false)
+        search()
+        hide()
+        // 独立窗口里打开聊天：呼出启动器显示聊天
+        DetachedExtensionWindow.present(host, at: frame) { [weak self] request in
+            self?.show()
+            self?.openChat(request)
+        }
     }
 
     private func openQuicklink(_ link: Quicklink, query: String?) {
@@ -593,6 +620,7 @@ final class LauncherController: NSObject {
 
     private func setSearchChromeHidden(_ hidden: Bool) {
         avatarButton.isHidden = hidden
+        devBadge?.isHidden = hidden
         searchField.isHidden = hidden
         if hidden {
             divider.isHidden = true
@@ -610,7 +638,7 @@ final class LauncherController: NSObject {
         case .feature(let feature, _):
             image = extensions.owner(of: feature).map { ExtensionIcon.image(for: $0, feature: feature.feature) } ?? NSImage()
         case .chat:
-            image = ExtensionIcon.symbolTile("sparkles", color: .systemTeal)
+            image = ExtensionIcon.symbolTile("bubble.left.and.bubble.right.fill", color: Theme.accentNSColor)
         case .command(let command):
             image = ExtensionIcon.symbolTile(command.icon.symbol, color: command.icon.color)
         case .file(let file):

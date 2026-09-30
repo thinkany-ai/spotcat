@@ -191,7 +191,7 @@ spotcat.onEnter(({ code, type, payload }) => {
 | `speak(text, lang?)` / `stopSpeaking()` | 系统语音朗读 | |
 | `storage.get(key)` / `set(key, value)` / `remove(key)` | 扩展私有的持久化存储（JSON） | |
 | `i18n.locale` / `i18n.t(key, vars)` / `i18n.apply(root)` | 多语言，见上文 | |
-| `ai.info()` / `ai.chat({ messages, onDelta, signal })` | 使用 Spotcat 配置的 AI 服务 | `ai` |
+| `ai.info({ model })` / `ai.chat({ messages, model, onDelta, signal })` | 使用 Spotcat 配置的 AI 服务；`model` 可选，默认用设置里的默认模型 | `ai` |
 | `chat.open({ title, context, prompt, send })` | 带上下文进入内置 AI 对话 | |
 
 `storage` 数据存放在 `~/Library/Application Support/Spotcat/ExtensionData/<扩展 id>.json`。

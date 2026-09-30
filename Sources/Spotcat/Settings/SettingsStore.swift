@@ -9,12 +9,15 @@ struct Shortcut: Codable, Equatable {
     /// 按键显示名，录制时按当前键盘布局取得
     var key: String
 
-    /// 正式版 ⌥Space；开发版 ⌥⇧Space，两个版本同时运行时不抢同一个快捷键
-    static let `default` = Shortcut(
-        keyCode: UInt32(kVK_Space),
-        modifiers: (AppEnvironment.isDevelopment ? [.option, .shift] : NSEvent.ModifierFlags.option).rawValue,
-        key: "Space"
-    )
+    /// 默认快捷键 ⌘Space。没有手动设置时按 candidates 的顺序自动选第一个没被占用的
+    static let `default` = candidates[0]
+
+    /// ⌘Space > ⌥Space > ⌃Space > ⌘⇧Space > ⌥⇧Space
+    static let candidates: [Shortcut] = [
+        [.command], [.option], [.control], [.command, .shift], [.option, .shift],
+    ].map { (flags: NSEvent.ModifierFlags) in
+        Shortcut(keyCode: UInt32(kVK_Space), modifiers: flags.rawValue, key: "Space")
+    }
 
     private static let allowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
 
@@ -77,7 +80,10 @@ final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
     static let followSystem = "system"
 
+    /// 手动设置的快捷键；没有时为自动模式
     private static let shortcutKey = "shortcut"
+    /// 当前实际使用的快捷键，给同时运行的另一个版本（开发版 / 正式版）判断冲突用
+    static let activeShortcutKey = "activeShortcut"
     private static let languageKey = "language"
     private static let appearanceKey = "appearance"
     private static let nicknameKey = "nickname"
@@ -91,6 +97,15 @@ final class SettingsStore: ObservableObject {
 
     @Published private(set) var shortcut: Shortcut
     @Published var shortcutError: String?
+    /// 没有手动设置快捷键，按 Shortcut.candidates 自动选择
+    @Published private(set) var isAutomaticShortcut: Bool
+    /// 自动模式下没用上 ⌘Space 时，占用它的系统功能或应用
+    @Published private(set) var defaultShortcutOwner: ShortcutConflicts.Owner?
+    /// 自动模式下被跳过的候选及其占用者（按顺序，不含 ⌘Space）
+    private(set) var skippedShortcuts: [(Shortcut, ShortcutConflicts.Owner)] = []
+    private var isShortcutRegistered = false
+    private var isRecordingShortcut = false
+    private var loggedShortcut: Shortcut?
     @Published private(set) var launchAtLoginStatus: SMAppService.Status = .notRegistered
     @Published var launchAtLoginError: String?
 
@@ -172,8 +187,10 @@ final class SettingsStore: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: Self.shortcutKey),
            let saved = try? JSONDecoder().decode(Shortcut.self, from: data) {
             shortcut = saved
+            isAutomaticShortcut = false
         } else {
             shortcut = .default
+            isAutomaticShortcut = true
         }
         language = UserDefaults.standard.string(forKey: Self.languageKey) ?? Self.followSystem
         appearance = UserDefaults.standard.string(forKey: Self.appearanceKey) ?? Self.followSystem
@@ -183,7 +200,7 @@ final class SettingsStore: ObservableObject {
         disabledFeatures = Set(UserDefaults.standard.stringArray(forKey: Self.disabledFeaturesKey) ?? [])
         let savedQuicklinks = UserDefaults.standard.data(forKey: Self.quicklinksKey)
             .flatMap { try? JSONDecoder().decode([Quicklink].self, from: $0) }
-        quicklinks = savedQuicklinks == nil || savedQuicklinks == Quicklink.legacyDefaults ? Quicklink.defaults : savedQuicklinks!
+        quicklinks = savedQuicklinks ?? Quicklink.defaults
         defaultSearchEngine = UserDefaults.standard.string(forKey: Self.searchEngineKey) ?? "google"
         let defaults = UserDefaults.standard
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
@@ -195,10 +212,16 @@ final class SettingsStore: ObservableObject {
 
     // MARK: - 快捷键
 
+    /// 手动设置快捷键。被系统或其他应用占用时不接受，保留原来的
     func updateShortcut(_ new: Shortcut) {
         guard let register = hotKeyRegistrar else { return }
-        if register(new) {
-            shortcut = new
+        if let owner = ShortcutConflicts.owner(of: new) {
+            _ = register(shortcut)
+            shortcutError = L10n.t("settings.shortcut.takenBy", new.displayString, owner.name)
+        } else if register(new) {
+            setActiveShortcut(new)
+            isAutomaticShortcut = false
+            defaultShortcutOwner = nil
             shortcutError = nil
             if let data = try? JSONEncoder().encode(new) {
                 UserDefaults.standard.set(data, forKey: Self.shortcutKey)
@@ -209,9 +232,86 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// 恢复默认：清除手动设置，回到自动模式（优先 ⌘Space）
+    func useAutomaticShortcut() {
+        UserDefaults.standard.removeObject(forKey: Self.shortcutKey)
+        isAutomaticShortcut = true
+        isShortcutRegistered = false
+        shortcutError = nil
+        applyShortcut()
+    }
+
+    /// 注册快捷键并检查冲突；启动时和之后定期调用（用户在系统设置或其他应用里改了快捷键后自动跟上）。
+    /// 自动模式下按 Shortcut.candidates 的顺序选第一个没被占用的，占用解除后自动换回更靠前的
+    func applyShortcut() {
+        guard let register = hotKeyRegistrar, !isRecordingShortcut else { return }
+        guard isAutomaticShortcut else {
+            if !isShortcutRegistered {
+                isShortcutRegistered = register(shortcut)
+                if !isShortcutRegistered {
+                    shortcutError = L10n.t("settings.shortcut.registerFailed", shortcut.displayString)
+                    NSLog("%@", "Spotcat: \(shortcut.displayString) 注册失败")
+                    return
+                }
+            }
+            setActiveShortcut(shortcut)
+            let error = ShortcutConflicts.owner(of: shortcut).map {
+                L10n.t("settings.shortcut.takenBy", shortcut.displayString, $0.name)
+            }
+            if shortcutError != error { shortcutError = error }
+            return
+        }
+
+        var skipped: [(Shortcut, ShortcutConflicts.Owner)] = []
+        var chosen: Shortcut?
+        for candidate in Shortcut.candidates {
+            if let owner = ShortcutConflicts.owner(of: candidate) {
+                skipped.append((candidate, owner))
+                continue
+            }
+            if candidate == shortcut, isShortcutRegistered {
+                chosen = candidate
+                break
+            }
+            if register(candidate) {
+                isShortcutRegistered = true
+                chosen = candidate
+                break
+            }
+        }
+        // 全都被占用时仍然注册 ⌘Space，并在设置里提示
+        if chosen == nil {
+            isShortcutRegistered = register(.default)
+            chosen = .default
+        }
+        let owner = skipped.first { $0.0 == .default }?.1
+        skippedShortcuts = skipped.filter { $0.0 != .default }
+        if defaultShortcutOwner != owner { defaultShortcutOwner = owner }
+        let error = skipped.count == Shortcut.candidates.count
+            ? L10n.t("settings.shortcut.allTaken") : nil
+        if shortcutError != error { shortcutError = error }
+        if let chosen {
+            if chosen != loggedShortcut {
+                let skippedText = skipped.map { "\($0.0.displayString)：\($0.1.name)" }.joined(separator: "，")
+                NSLog("%@", "Spotcat: 快捷键 \(chosen.displayString)" + (skipped.isEmpty ? "" : "（跳过 \(skippedText)）"))
+            }
+            loggedShortcut = chosen
+            setActiveShortcut(chosen)
+        }
+    }
+
+    private func setActiveShortcut(_ new: Shortcut) {
+        if shortcut != new { shortcut = new }
+        if let data = try? JSONEncoder().encode(new), UserDefaults.standard.data(forKey: Self.activeShortcutKey) != data {
+            UserDefaults.standard.set(data, forKey: Self.activeShortcutKey)
+        }
+    }
+
     /// 录制期间先注销当前快捷键，否则按下当前组合会被全局热键截走
     func setRecording(_ recording: Bool) {
-        _ = hotKeyRegistrar?(recording ? nil : shortcut)
+        isRecordingShortcut = recording
+        let registered = hotKeyRegistrar?(recording ? nil : shortcut) ?? false
+        isShortcutRegistered = !recording && registered
     }
 
     // MARK: - 开机启动

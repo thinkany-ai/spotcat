@@ -26,5 +26,11 @@
 	<true/>
 	<key>SpotcatChannel</key>
 	<string>release</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>AI 对话需要读取桌面上的文件来回答你的问题。AI chat reads files on your Desktop to answer your questions.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>AI 对话需要读取文稿中的文件来回答你的问题。AI chat reads files in Documents to answer your questions.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>AI 对话需要读取下载文件夹中的文件来回答你的问题。AI chat reads files in Downloads to answer your questions.</string>
 </dict>
 </plist>

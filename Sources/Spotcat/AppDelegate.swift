@@ -5,12 +5,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launcher: LauncherController!
     private var hotKey: HotKey?
     private var statusItem: NSStatusItem!
+    private var shortcutTimer: Timer?
+    /// 本次运行提示过改用 ⌘Space，之后换上 ⌘Space 时告诉用户已生效
+    private var didPromptForDefaultShortcut = false
+    private static let suppressShortcutPromptKey = "suppressDefaultShortcutPrompt"
 
     private let settings = SettingsStore.shared
     private lazy var settingsWindow = SettingsWindowController(store: settings)
 
     static func main() {
-        migrateLegacyDefaults()
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -26,14 +29,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.hotKeyRegistrar = { [weak self] shortcut in
             self?.registerHotKey(shortcut) ?? false
         }
-        if !registerHotKey(settings.shortcut) {
-            let name = settings.shortcut.displayString
-            settings.shortcutError = L10n.t("settings.shortcut.registerFailed", name)
-            NSLog("%@", "Spotcat: \(name) 注册失败")
+        settings.applyShortcut()
+        // 用户在系统设置或其他应用里改了快捷键后，几秒内自动换到更靠前的候选（最好是 ⌘Space）
+        shortcutTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            self?.refreshShortcut()
         }
 
         setupMainMenu()
         setupStatusItem()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.promptForDefaultShortcutIfNeeded()
+        }
 
         Updater.shared.startAutomaticChecks()
 
@@ -75,20 +82,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = main
     }
 
-    /// Bundle ID 从 ai.trys.spotcat 改为 ai.thinkany.spotcat 后，把旧设置（快捷键、语言、快捷链接等）复制过来一次
-    private static func migrateLegacyDefaults() {
-        let legacyID = "ai.trys.spotcat"
-        let marker = "migratedFromLegacyBundleID"
-        let defaults = UserDefaults.standard
-        // 只迁移到正式版；开发版从干净的数据开始
-        guard !AppEnvironment.isDevelopment, Bundle.main.bundleIdentifier != legacyID,
-              !defaults.bool(forKey: marker) else { return }
-        if let legacy = defaults.persistentDomain(forName: legacyID) {
-            for (key, value) in legacy where defaults.object(forKey: key) == nil {
-                defaults.set(value, forKey: key)
-            }
+    private func refreshShortcut() {
+        let before = settings.shortcut
+        settings.applyShortcut()
+        guard didPromptForDefaultShortcut, before != .default, settings.shortcut == .default else { return }
+        didPromptForDefaultShortcut = false
+        let alert = NSAlert()
+        alert.messageText = L10n.t("shortcut.prompt.doneTitle", Shortcut.default.displayString)
+        alert.informativeText = L10n.t("shortcut.prompt.doneMessage", Shortcut.default.displayString)
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
+
+    /// 自动模式下 ⌘Space 被占用时，提示用户解除占用；没解除前先用自动选出的候选
+    private func promptForDefaultShortcutIfNeeded() {
+        guard settings.isAutomaticShortcut, let owner = settings.defaultShortcutOwner, owner != .spotcat,
+              !UserDefaults.standard.bool(forKey: Self.suppressShortcutPromptKey) else { return }
+        showDefaultShortcutPrompt(owner: owner, allowSuppress: true)
+    }
+
+    /// 设置页也会调用（「如何改用 ⌘Space」）
+    func showDefaultShortcutPrompt(owner: ShortcutConflicts.Owner, allowSuppress: Bool) {
+        let preferred = Shortcut.default.displayString
+        let alert = NSAlert()
+        alert.messageText = L10n.t("shortcut.prompt.title", preferred)
+
+        var lines: [String] = []
+        switch owner {
+        case .system:
+            lines.append(L10n.t("shortcut.prompt.system", preferred, owner.name))
+        case .app, .spotcat:
+            lines.append(L10n.t("shortcut.prompt.app", preferred, owner.name, owner.name))
         }
-        defaults.set(true, forKey: marker)
+        let others = settings.skippedShortcuts.filter { $0.1 != .spotcat }
+        if !others.isEmpty {
+            let list = others.map { L10n.t("shortcut.prompt.takenItem", $0.0.displayString, $0.1.name) }
+            lines.append(L10n.t("shortcut.prompt.alsoTaken", list.joined(separator: L10n.t("shortcut.prompt.separator"))))
+        }
+        lines.append(L10n.t("shortcut.prompt.fallback", settings.shortcut.displayString, preferred))
+        alert.informativeText = lines.joined(separator: "\n\n")
+
+        switch owner {
+        case .system:
+            alert.addButton(withTitle: L10n.t("shortcut.prompt.openKeyboard"))
+        case .app(let name, _):
+            alert.addButton(withTitle: L10n.t("shortcut.prompt.openApp", name))
+        case .spotcat:
+            alert.addButton(withTitle: L10n.t("shortcut.prompt.ok"))
+        }
+        alert.addButton(withTitle: L10n.t("shortcut.prompt.later", settings.shortcut.displayString))
+        alert.showsSuppressionButton = allowSuppress
+        alert.suppressionButton?.title = L10n.t("shortcut.prompt.dontRemind")
+
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if alert.suppressionButton?.state == .on {
+            UserDefaults.standard.set(true, forKey: Self.suppressShortcutPromptKey)
+        }
+        guard response == .alertFirstButtonReturn else { return }
+        didPromptForDefaultShortcut = true
+        switch owner {
+        case .system:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Shortcuts") {
+                NSWorkspace.shared.open(url)
+            }
+        case .app(_, let bundleID):
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
+        case .spotcat:
+            break
+        }
     }
 
     /// 替换当前全局快捷键；nil 表示只注销
@@ -142,6 +204,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let reset = NSMenuItem(title: L10n.t("menu.resetPosition"), action: #selector(resetPosition), keyEquivalent: "")
         reset.target = self
         menu.addItem(reset)
+        // 分离出去的扩展窗口，点击切过去
+        let detached = DetachedExtensionWindow.menuItems()
+        if !detached.isEmpty {
+            menu.addItem(.separator())
+            detached.forEach(menu.addItem)
+        }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: L10n.t("menu.quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }

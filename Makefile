@@ -1,4 +1,4 @@
-.PHONY: build run debug universal release icons clean
+.PHONY: build run dev debug universal release icons clean
 
 build:
 	./scripts/bundle.sh release
@@ -11,6 +11,10 @@ run: build
 	-pkill -f "build/Spotcat Dev.app/Contents/MacOS/Spotcat"
 	@while pgrep -f "build/Spotcat Dev.app/Contents/MacOS/Spotcat" >/dev/null; do sleep 0.1; done
 	open "build/Spotcat Dev.app"
+
+# 开发模式：Swift 改动自动重编译重启，聊天面板和扩展页面改完即刷新（scripts/dev.sh）
+dev:
+	./scripts/dev.sh
 
 universal:
 	./scripts/bundle.sh release --universal

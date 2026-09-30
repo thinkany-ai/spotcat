@@ -76,11 +76,14 @@ interface Spotcat {
     apply(root?: ParentNode): void;
   };
 
-  /** 使用 Spotcat 设置中的 AI 服务。需要 manifest 声明 "permissions": ["ai"] */
+  /**
+   * 使用 Spotcat 设置中的 AI 服务。需要 manifest 声明 "permissions": ["ai"]。
+   * model 为 "服务商 id/模型名"（即 info() 返回的 id），不传或已失效时用默认模型
+   */
   ai: {
-    info(): Promise<{ configured: boolean; model: string; provider: string }>;
+    info(options?: { model?: string }): Promise<{ configured: boolean; id: string; model: string; provider: string }>;
     /** 返回完整回复；传 onDelta 时流式推送增量，signal 可中止 */
-    chat(options: { messages: SpotcatChatMessage[]; onDelta?: (delta: string) => void; signal?: AbortSignal }): Promise<string>;
+    chat(options: { messages: SpotcatChatMessage[]; model?: string; onDelta?: (delta: string) => void; signal?: AbortSignal }): Promise<string>;
   };
 
   /** Spotcat 内置的 AI 对话面板。在聊天里按 Esc 或返回按钮回到扩展，扩展状态保留 */

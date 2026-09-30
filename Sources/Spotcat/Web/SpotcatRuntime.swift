@@ -16,6 +16,8 @@ enum SpotcatRuntime {
           Object.defineProperty(window, '__spotcatEvent', {
             value(name, payload) {
               if (name === 'ai.delta') aiStreams.get(payload.id)?.(payload.delta);
+              // 其他事件（如内置聊天面板的 agent.event）以 DOM 事件派发：spotcat:<name>
+              else window.dispatchEvent(new CustomEvent('spotcat:' + name, { detail: payload }));
             },
           });
 
@@ -62,13 +64,13 @@ enum SpotcatRuntime {
             i18n: Object.freeze({ locale, t, apply }),
 
             ai: Object.freeze({
-              info: () => call('ai.info'),
-              chat({ messages, onDelta, signal } = {}) {
+              info: (o = {}) => call('ai.info', { model: o.model }),
+              chat({ messages, model, onDelta, signal } = {}) {
                 const id = ++seq;
                 if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
                 if (onDelta) aiStreams.set(id, onDelta);
                 signal?.addEventListener('abort', () => call('ai.cancel', { id }), { once: true });
-                return call('ai.chat', { id, messages, stream: Boolean(onDelta) }).finally(() => aiStreams.delete(id));
+                return call('ai.chat', { id, messages, model, stream: Boolean(onDelta) }).finally(() => aiStreams.delete(id));
               },
             }),
 

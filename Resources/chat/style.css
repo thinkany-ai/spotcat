@@ -7,6 +7,8 @@
   --hover: rgba(0, 0, 0, 0.06);
   --border: rgba(0, 0, 0, 0.08);
   --code: rgba(0, 0, 0, 0.05);
+  --sheet: rgba(248, 248, 250, 0.78);
+  --sheet-border: rgba(0, 0, 0, 0.08);
   --accent: #F65E6A;
   --on-accent: #fff;
   --error: #DC2626;
@@ -21,6 +23,8 @@
     --hover: rgba(255, 255, 255, 0.08);
     --border: rgba(255, 255, 255, 0.1);
     --code: rgba(255, 255, 255, 0.07);
+    --sheet: rgba(44, 44, 48, 0.8);
+    --sheet-border: rgba(255, 255, 255, 0.1);
     --accent: #FF6F7A;
     --on-accent: #fff;
     --error: #F87171;
@@ -55,6 +59,15 @@ svg .fill { fill: currentColor; stroke: none; }
 .titles { flex: 1; min-width: 0; }
 .title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .subtitle { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 副标题即模型切换按钮 */
+.model-picker {
+  display: inline-flex; align-items: center; gap: 2px; max-width: 100%;
+  margin: 0 0 0 -6px; padding: 0 4px 0 6px; border: 0; border-radius: 6px; background: transparent;
+}
+.model-picker:hover { background: var(--hover); }
+.model-picker:hover .subtitle { color: var(--fg); }
+.model-chevron { display: inline-grid; color: var(--fg-3); }
+.model-chevron svg { width: 12px; height: 12px; stroke-width: 2.2; }
 
 /* 对话 */
 main { flex: 1; overflow-y: auto; padding: 4px 22px 16px; }
@@ -97,6 +110,37 @@ main { flex: 1; overflow-y: auto; padding: 4px 22px 16px; }
 .markdown code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
 .markdown pre { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--code); overflow-x: auto; }
 .markdown pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+.markdown .table { margin: 0 0 10px; overflow-x: auto; }
+.markdown table { border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+.markdown th, .markdown td { padding: 6px 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+.markdown th { background: var(--code); font-weight: 600; white-space: nowrap; }
+.markdown tbody tr:nth-child(even) td { background: rgba(127, 127, 127, 0.04); }
+/* 工具步骤 */
+.tool-step { margin: 6px 0; }
+.tool-step + .markdown, .markdown + .tool-step { margin-top: 10px; }
+.tool-head {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 3px 8px 3px 6px; border: 0; border-radius: 8px; background: var(--field); color: var(--fg-2);
+  font-size: 13px; line-height: 20px;
+}
+.tool-head:not(:disabled):hover { background: var(--hover); color: var(--fg); }
+.tool-head svg { width: 15px; height: 15px; }
+.tool-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-status { display: inline-grid; place-items: center; width: 15px; height: 15px; }
+.tool-status svg { width: 13px; height: 13px; stroke-width: 2.4; }
+.tool-step.failed .tool-status { color: var(--error); }
+.tool-head .chevron svg { width: 12px; height: 12px; }
+.tool-step.open .chevron { transform: rotate(180deg); }
+.tool-output {
+  margin: 6px 0 0; padding: 8px 10px; max-height: 220px; overflow: auto; border-radius: 8px; background: var(--code);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; -webkit-user-select: text;
+}
+.spinner {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1.6px solid var(--fg-3); border-top-color: var(--fg-2);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; border-radius: 2px; background: var(--fg); animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
@@ -124,3 +168,47 @@ main { flex: 1; overflow-y: auto; padding: 4px 22px 16px; }
 }
 .send:disabled { opacity: 0.35; }
 .send.busy { background: var(--fg); }
+
+/* 对话历史：挂在历史按钮下方的悬浮卡片，毛玻璃与面板一致，不遮暗对话 */
+.icon-btn.active { background: var(--hover); color: var(--fg); }
+.history { position: fixed; inset: 0; z-index: 10; }
+.history-backdrop { position: absolute; inset: 0; }
+.history-panel {
+  position: absolute; top: 0; right: 12px; bottom: 12px; width: 300px;
+  display: flex; flex-direction: column;
+  border-radius: 14px; border: 1px solid var(--sheet-border);
+  background: var(--sheet); -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.08);
+  transform-origin: top right;
+  animation: pop-in 0.14s ease-out;
+  overflow: hidden;
+}
+@keyframes pop-in { from { transform: translateY(-4px) scale(0.98); opacity: 0; } }
+.history-search {
+  display: flex; align-items: center; gap: 6px; margin: 10px 10px 4px; padding: 0 10px; height: 30px;
+  border-radius: 8px; background: var(--field); color: var(--fg-3);
+}
+.history-search:focus-within { background: var(--hover); color: var(--fg-2); }
+.history-search svg { width: 14px; height: 14px; }
+#history-search {
+  flex: 1; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--fg);
+  font: 13px -apple-system, "PingFang SC", sans-serif; -webkit-user-select: text;
+}
+#history-search::placeholder { color: var(--fg-3); }
+#history-search::-webkit-search-cancel-button { display: none; }
+.history-list { flex: 1; overflow-y: auto; padding: 0 6px 6px; }
+.history-group { padding: 12px 10px 4px; font-size: 11px; font-weight: 600; color: var(--fg-3); }
+.history-item {
+  display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px 0 10px; border-radius: 8px;
+}
+.history-item:hover { background: var(--hover); }
+.history-item.current { background: var(--bubble); }
+.history-item.current .history-title { font-weight: 500; }
+.history-title { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 右侧显示时间，悬停时换成删除按钮 */
+.history-time { flex-shrink: 0; width: 44px; padding-right: 6px; text-align: right; font-size: 11px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.history-item .icon-btn { display: none; }
+.history-item:hover .history-time { display: none; }
+.history-item:hover .icon-btn { display: inline-grid; }
+.history-item .icon-btn:hover { color: var(--error); background: transparent; }
+.history-empty { padding: 28px 8px; text-align: center; font-size: 13px; color: var(--fg-3); }
