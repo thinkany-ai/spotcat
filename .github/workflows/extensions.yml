@@ -1,0 +1,35 @@
+name: Publish extensions
+
+# 把 thinkany-ai/spotcat-extensions（公开仓库）里版本号有变化的扩展发布到 cdn.spotcat.ai/extensions。
+# 放在这个仓库是为了复用已经配置好的 R2 Secrets（CLOUDFLARE_ACCOUNT_ID、R2_ACCESS_KEY_ID、R2_SECRET_ACCESS_KEY）。
+# 每 30 分钟检查一次；没有变化时只读取一次 index.json 就结束。也可以手动运行并指定扩展 id。
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: "要发布的扩展 id（空格分隔）；留空发布所有有变化的，填 --index-only 只重建 index.json"
+        required: false
+
+concurrency:
+  group: publish-extensions
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: thinkany-ai/spotcat-extensions
+
+      - name: Publish
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          IDS: ${{ github.event.inputs.ids }}
+        run: |
+          if [ -n "$IDS" ]; then ./scripts/publish.sh $IDS; else ./scripts/publish.sh --changed; fi
