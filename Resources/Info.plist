@@ -15,22 +15,22 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.2</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>SpotcatChannel</key>
-	<string>release</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>AI 对话需要读取桌面上的文件来回答你的问题。AI chat reads files on your Desktop to answer your questions.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
 	<string>AI 对话需要读取文稿中的文件来回答你的问题。AI chat reads files in Documents to answer your questions.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>AI 对话需要读取下载文件夹中的文件来回答你的问题。AI chat reads files in Downloads to answer your questions.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>SpotcatChannel</key>
+	<string>release</string>
 </dict>
 </plist>
