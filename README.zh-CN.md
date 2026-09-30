@@ -27,10 +27,10 @@
 ## 功能
 
 - **应用**：模糊搜索，支持词首和缩写匹配（`vsc` → Visual Studio Code）、中文拼音（`wyy` → 网易云音乐），常用应用自动靠前。
-- **文件**：`file: report` 通过 Spotlight 索引搜索用户目录，按目录分组；支持通配符（`file: *.dmg`、`douchat*.dmg`）和路径浏览 + Tab 补全（`file: ~/Down` ⇥）。输入像文件名的内容时会推荐文件搜索。
+- **文件**：`file report` 或 `文件 report` 通过 Spotlight 索引搜索用户目录，按目录分组；支持通配符（`file *.dmg`、`douchat*.dmg`）和路径浏览 + Tab 补全（`file ~/Down` ⇥）。输入像文件名的内容时会推荐文件搜索。
 - **网页**：直接输入网址（`github.com`、`localhost:3000`）打开；快捷链接如 `gh spotcat`、`g 天气`；任意文字都可以用默认搜索引擎搜索。
 - **AI 对话**：在搜索框直接提问，或从扩展的结果带着上下文继续追问。流式输出、Markdown 渲染；自带 Key，支持 Anthropic 与任意 OpenAI 兼容服务商。
-- **扩展**：HTML/CSS/JS 编写，可通过关键词或内容（正则）触发。内置 URL/Base64 编解码和多服务对照翻译（系统翻译、Google、AI）。
+- **扩展**：HTML/CSS/JS 编写，可通过关键词或内容（正则）触发。从插件市场安装 URL/Base64 编解码和多服务对照翻译（系统翻译、Google、AI）等扩展。
 - **原生体验**：不抢焦点的浮动面板、全局快捷键、浅色/深色、简体中文/English、开机启动、可拖动并记住位置。
 
 ## 安装
@@ -55,7 +55,7 @@
 | 输入 | 结果 |
 |---|---|
 | `cal` | 应用、扩展和指令 |
-| `file: 发票` · `file: *.pdf` · `file: ~/Downloads/` | 文件搜索 / 路径浏览 |
+| `file 发票` · `文件 *.pdf` · `file ~/Downloads/` | 文件搜索 / 路径浏览 |
 | `github.com` · `gh spotcat` · `bd 天气` | 打开网址或快捷链接 |
 | `%E4%BD%A0` · `SGVsbG8=` · 任意文字 | 匹配推荐：解码、翻译、AI 对话、网页搜索 |
 | `设置` / `settings` | 打开 Spotcat 设置 |
@@ -79,8 +79,9 @@ my-extension/
 页面通过 `window.spotcat` 与 Spotcat 交互：剪贴板、存储、不受 CORS 限制的 `fetch`（`network` 权限）、语言识别、
 系统翻译、朗读、用户配置的 AI（`ai` 权限），以及用 `spotcat.chat.open()` 把结果交给内置 AI 对话继续追问。
 
-把扩展放到 `~/Library/Application Support/Spotcat/Extensions/`（可以用软链接），在「设置 › 扩展」中重新加载即可。
-完整的清单字段和 API 见 **[extensions/README.md](extensions/README.md)**，类型声明见 [`extensions/spotcat.d.ts`](extensions/spotcat.d.ts)。
+扩展在「设置 › 扩展 › 插件市场」中按需安装。扩展源码、开发文档、`spotcat.d.ts` 类型声明和给 AI agent 用的开发 skill 都在
+**[thinkany-ai/spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions)**。调试自己的扩展时，把它放到
+`~/Library/Application Support/Spotcat/Extensions/`（可以用软链接），在「设置 › 扩展」中重新加载即可；开源扩展可以在该仓库提交收录申请。
 
 ## 从源码构建
 
@@ -129,4 +130,4 @@ make run          # 编译 → build/Spotcat Dev.app（ad-hoc 签名）→ 启�
 
 Spotcat 以 [AGPL-3.0](LICENSE) 授权 © 2026 ThinkAny, LLC。如需不受 AGPL copyleft 约束的商业授权，请联系 support@thinkany.ai。
 
-[`extensions/`](extensions) 中的内置扩展、扩展文档和 `spotcat.d.ts` 采用 [MIT 协议](extensions/LICENSE)，第三方扩展可以按任意协议使用。
+[spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions) 中的官方扩展、扩展文档和 `spotcat.d.ts` 采用 MIT 协议，第三方扩展可以按任意协议使用。

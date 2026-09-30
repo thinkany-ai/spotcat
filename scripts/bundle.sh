@@ -49,9 +49,7 @@ else
 fi
 # 内置聊天面板
 cp -R Resources/chat "$APP/Contents/Resources/chat"
-# 内置扩展（文档、类型声明和许可证不打包）
-cp -R extensions "$APP/Contents/Resources/Extensions"
-rm -f "$APP"/Contents/Resources/Extensions/*.md "$APP"/Contents/Resources/Extensions/*.d.ts "$APP"/Contents/Resources/Extensions/LICENSE
+# 扩展不再内置，由插件市场按需安装（仓库 thinkany-ai/spotcat-extensions）
 
 codesign --force --sign - "$APP" >/dev/null
 

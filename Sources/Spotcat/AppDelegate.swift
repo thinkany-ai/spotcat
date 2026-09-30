@@ -43,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         Updater.shared.startAutomaticChecks()
+        // 扩展不再内置：首次运行时从插件市场装上推荐扩展
+        ExtensionStore.shared.bootstrapIfNeeded()
 
         settings.onSearchOptionsChange = { [weak self] in
             self?.launcher.refreshResults()

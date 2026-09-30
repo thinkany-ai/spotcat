@@ -571,6 +571,8 @@ final class LauncherController: NSObject {
         switch command {
         case .settings:
             (NSApp.delegate as? AppDelegate)?.showSettings()
+        case .extensions:
+            (NSApp.delegate as? AppDelegate)?.showSettings(tab: .extensions)
         case .searchFiles:
             // 切到文件搜索，等待输入文件名
             searchField.stringValue = FileQuery.defaultPrefix

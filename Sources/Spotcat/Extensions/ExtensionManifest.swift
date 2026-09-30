@@ -1,6 +1,6 @@
 import Foundation
 
-/// 扩展目录下的 manifest.json。字段说明见 extensions/README.md
+/// 扩展目录下的 manifest.json。字段说明见 spotcat-extensions 仓库的 docs/development.md
 /// name / description / title / keywords 可写成 "__MSG_key__"，从 locales/<语言>.json 取文案
 struct ExtensionManifest: Decodable {
     let id: String

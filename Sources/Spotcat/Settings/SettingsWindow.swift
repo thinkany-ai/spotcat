@@ -43,11 +43,27 @@ final class SettingsNavigation: ObservableObject {
     /// 编辑中的模型列表原文（一行一个），完成或测试时才解析
     @Published var modelsDraft = ""
     @Published var providerTest: ProviderTest?
+    /// 扩展页：已安装 / 插件市场
+    @Published var extensionsPage: ExtensionsSettingsView.Page = .installed
+    /// 等待确认卸载的扩展 id
+    @Published var uninstallingExtension: String?
 
     enum ProviderTest: Equatable {
         case running
         case passed(String)
         case failed(String)
+    }
+}
+
+private final class SettingsWindow: NSWindow {
+    // accessory App 没有「关闭窗口」菜单，在窗口内处理 ⌘W。
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "w" {
+            performClose(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
     }
 }
 
@@ -72,7 +88,7 @@ final class SettingsWindowController {
             // 窗口尺寸由下面手动设置：按内容理想尺寸计算时会把标题栏安全区算进去，
             // 而内容延伸到标题栏下，结果窗口底部多出一截空白
             hosting.sizingOptions = []
-            let window = NSWindow(contentViewController: hosting)
+            let window = SettingsWindow(contentViewController: hosting)
             window.title = L10n.t("settings.title")
             // 内容延伸到标题栏下，侧边栏一直到顶部（系统设置风格）
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
@@ -92,6 +108,8 @@ final class SettingsWindowController {
             NSApp.activate(ignoringOtherApps: true)
         }
         window?.makeKeyAndOrderFront(nil)
+        // 系统可能拒绝激活（macOS 14 起激活是「请求」），至少把窗口放到最前面，不被其他应用挡住
+        if !NSApp.isActive { window?.orderFrontRegardless() }
     }
 
     func localeDidChange() {
@@ -160,7 +178,7 @@ struct SettingsRootView: View {
     private func content(for tab: SettingsTab) -> some View {
         switch tab {
         case .general: GeneralSettingsView(store: store, recorder: recorder)
-        case .extensions: ExtensionsSettingsView(store: store, manager: .shared)
+        case .extensions: ExtensionsSettingsView(store: store, manager: .shared, navigation: navigation)
         case .quicklinks: QuicklinksSettingsView(store: store, navigation: navigation)
         case .profile: ProfileSettingsView(store: store)
         case .ai: ModelsSettingsView(store: store, navigation: navigation)

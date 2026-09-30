@@ -1,11 +1,26 @@
 import AppKit
 
+/// 扩展从哪里来
+enum ExtensionSource: Equatable {
+    /// 从插件市场安装（目录里有 .spotcat-install.json）
+    case store(official: Bool)
+    /// 用户自己放进插件目录的（开发调试、手动安装）
+    case local
+    /// make dev 时从 spotcat-extensions 源码目录加载（SPOTCAT_EXTENSIONS_DIR）
+    case dev
+
+    var isStore: Bool {
+        if case .store = self { return true }
+        return false
+    }
+}
+
 /// 已加载的扩展
 final class SpotcatExtension {
     /// 已本地化的 manifest
     let manifest: ExtensionManifest
     let directory: URL
-    let isBuiltIn: Bool
+    let source: ExtensionSource
     let features: [ExtensionFeatureRef]
     /// 页面使用的语言和文案（注入到 spotcat.i18n）
     let l10n: LocaleMessages
@@ -13,12 +28,12 @@ final class SpotcatExtension {
     var id: String { manifest.id }
     var mainURL: URL { directory.appendingPathComponent(manifest.main ?? "index.html") }
 
-    init(manifest raw: ExtensionManifest, directory: URL, isBuiltIn: Bool) {
+    init(manifest raw: ExtensionManifest, directory: URL, source: ExtensionSource) {
         l10n = LocaleMessages(directory: directory, defaultLocale: raw.defaultLocale ?? "en")
         let manifest = raw.localized(with: l10n)
         self.manifest = manifest
         self.directory = directory
-        self.isBuiltIn = isBuiltIn
+        self.source = source
         features = manifest.features.map { ExtensionFeatureRef(extensionID: manifest.id, feature: $0) }
     }
 }
@@ -81,8 +96,9 @@ private struct CompiledRule {
     }
 }
 
-/// 加载内置扩展（App 包内 Resources/Extensions）和用户扩展
-/// （~/Library/Application Support/Spotcat/Extensions），用户扩展不能覆盖内置扩展的 id。
+/// 加载插件目录（~/Library/Application Support/Spotcat/Extensions）里的扩展：
+/// 插件市场安装的（ExtensionStore）和用户自己放进来的都在这里。App 本身不再内置扩展。
+/// make dev 时另外加载 spotcat-extensions 源码目录，且优先于插件目录里的同 id 扩展。
 /// 搜索面板和设置窗口共用同一个实例
 final class ExtensionManager: ObservableObject {
     static let shared = ExtensionManager()
@@ -94,12 +110,6 @@ final class ExtensionManager: ObservableObject {
         AppEnvironment.dataDirectory.appendingPathComponent("Extensions", isDirectory: true)
     }
 
-    private static var builtInDirectory: URL? {
-        if let root = AppEnvironment.sourceRoot {
-            return root.appendingPathComponent("extensions", isDirectory: true)
-        }
-        return Bundle.main.resourceURL?.appendingPathComponent("Extensions", isDirectory: true)
-    }
 
     /// 所有功能（含已禁用的），设置页使用
     var allFeatures: [ExtensionFeatureRef] {
@@ -135,10 +145,9 @@ final class ExtensionManager: ObservableObject {
 
         var loaded: [SpotcatExtension] = []
         var ids = Set<String>()
-        let sources: [(URL?, Bool)] = [(Self.builtInDirectory, true), (Self.userExtensionsDirectory, false)]
-        for (directory, isBuiltIn) in sources {
-            guard let directory else { continue }
-            for ext in Self.load(from: directory, isBuiltIn: isBuiltIn) {
+        let directories: [(URL, isDev: Bool)] = [AppEnvironment.devExtensionsDirectory.map { ($0, true) }, (Self.userExtensionsDirectory, false)].compactMap { $0 }
+        for (directory, isDev) in directories {
+            for ext in Self.load(from: directory, isDev: isDev) {
                 guard ids.insert(ext.id).inserted else {
                     NSLog("%@", "Spotcat: 扩展 id 重复，已忽略 \(ext.directory.path)")
                     continue
@@ -149,7 +158,7 @@ final class ExtensionManager: ObservableObject {
         extensions = loaded
     }
 
-    private static func load(from directory: URL, isBuiltIn: Bool) -> [SpotcatExtension] {
+    private static func load(from directory: URL, isDev: Bool) -> [SpotcatExtension] {
         let fm = FileManager.default
         guard let children = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
             return []
@@ -161,7 +170,9 @@ final class ExtensionManager: ObservableObject {
             guard let data = try? Data(contentsOf: manifestURL) else { return nil }
             do {
                 let manifest = try JSONDecoder().decode(ExtensionManifest.self, from: data)
-                return SpotcatExtension(manifest: manifest, directory: dir, isBuiltIn: isBuiltIn)
+                let source: ExtensionSource = isDev ? .dev
+                    : InstallRecord.load(from: dir).map { .store(official: $0.official) } ?? .local
+                return SpotcatExtension(manifest: manifest, directory: dir, source: source)
             } catch {
                 NSLog("%@", "Spotcat: 解析 \(manifestURL.path) 失败：\(error)")
                 return nil

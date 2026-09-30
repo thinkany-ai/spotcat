@@ -21,7 +21,9 @@ make run        # builds build/Spotcat Dev.app and launches it
 Local builds are **Spotcat Dev** (bundle ID `ai.thinkany.spotcat.dev`, data in
 `~/Library/Application Support/Spotcat Dev`, hotkey ⌥⇧Space), isolated from an installed release.
 `make debug` builds a debug bundle. `swift build` alone compiles, but features that need bundle
-resources (icons, the chat page, built-in extensions) only work from the `.app`.
+resources (icons, the chat page) only work from the `.app`. `make dev` also loads extensions live
+from a sibling checkout of [spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions)
+(`../spotcat-extensions/extensions`, or set `SPOTCAT_EXTENSIONS_DIR`).
 
 ## Code style
 
@@ -37,11 +39,11 @@ resources (icons, the chat page, built-in extensions) only work from the `.app`.
 
 ## Extensions
 
-Built-in extensions live in [`extensions/`](extensions) and use exactly the same manifest and
-`window.spotcat` API as third-party ones. See [extensions/README.md](extensions/README.md).
-When adding a native capability to `window.spotcat`, update `SpotcatRuntime.swift`,
-`ExtensionAPI.swift`, `extensions/spotcat.d.ts` and the API table in `extensions/README.md`,
-and gate anything sensitive behind a manifest permission.
+Extensions are not bundled with the app; they live in
+[spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions) and are installed from the
+in-app store (`ExtensionStore.swift`). When adding a native capability to `window.spotcat`, update
+`SpotcatRuntime.swift` and `ExtensionAPI.swift` here, and `spotcat.d.ts`, `docs/development.md` and
+the agent skill in spotcat-extensions; gate anything sensitive behind a manifest permission.
 
 ## Pull requests
 
@@ -52,7 +54,7 @@ and gate anything sensitive behind a manifest permission.
    chat in both light and dark appearance.
 
 By submitting a pull request you agree that your contribution is licensed under the project's
-license (AGPL-3.0, or MIT for files under `extensions/`).
+license (AGPL-3.0).
 
 ## Reporting bugs
 

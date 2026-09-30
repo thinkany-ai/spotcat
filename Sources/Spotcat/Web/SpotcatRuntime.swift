@@ -1,6 +1,6 @@
 import Foundation
 
-/// 注入到页面的 window.spotcat。API 说明见 extensions/README.md 与 extensions/spotcat.d.ts
+/// 注入到页面的 window.spotcat。API 说明见 spotcat-extensions 仓库的 docs/development.md 与 spotcat.d.ts
 enum SpotcatRuntime {
     static func script(context: [String: Any]) -> String {
         let json = (try? JSONSerialization.data(withJSONObject: context)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"

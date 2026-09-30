@@ -1,17 +1,21 @@
 import AppKit
 
-/// "file: xxx" 形式的查询
+/// "file xxx" 形式的查询：与快捷链接一样，关键词 + 空格进入文件搜索
 enum FileQuery {
-    private static let prefixes = ["file:", "file：", "文件:", "文件："]
+    private static let keywords = ["file", "文件"]
 
-    /// 以前缀开头时返回要搜索的文件名（可能为空），否则返回 nil
+    /// 以「关键词 + 空格」开头时返回要搜索的文件名（可能为空），否则返回 nil。
+    /// 只去掉开头的空白：刚输入 "file " 时就进入文件搜索
     static func term(in text: String) -> String? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard let prefix = prefixes.first(where: { trimmed.lowercased().hasPrefix($0) }) else { return nil }
-        return String(trimmed.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+        let input = String(text.drop { $0.isWhitespace })
+        for keyword in keywords {
+            guard input.lowercased().hasPrefix(keyword), let next = input.dropFirst(keyword.count).first, next.isWhitespace else { continue }
+            return String(input.dropFirst(keyword.count)).trimmingCharacters(in: .whitespaces)
+        }
+        return nil
     }
 
-    static let defaultPrefix = "file: "
+    static let defaultPrefix = "file "
 
     static func isKnownExtension(_ ext: String) -> Bool {
         fileExtensions.contains(ext.lowercased())
@@ -31,7 +35,7 @@ enum FileQuery {
         "html", "css", "scss", "vue", "sh", "zsh", "yml", "yaml", "toml", "xml", "sql", "log", "plist", "env", "lock",
     ]
 
-    /// 没写 "file:" 但看起来是文件名、通配符或路径的输入，搜索时优先推荐文件搜索。
+    /// 没写 "file " 但看起来是文件名、通配符或路径的输入，搜索时优先推荐文件搜索。
     /// 网址（WebAddress）优先于这里，调用方应先判断
     static func looksLikeFile(_ text: String) -> Bool {
         let text = text.trimmingCharacters(in: .whitespaces)
@@ -51,7 +55,7 @@ enum FileQuery {
     }
 }
 
-/// "file: ~/Down" 这类以 ~ 或 / 开头的输入：直接读目录，像终端补全一样列出条目
+/// "file ~/Down" 这类以 ~ 或 / 开头的输入：直接读目录，像终端补全一样列出条目
 enum PathQuery {
     struct Listing {
         let directory: URL

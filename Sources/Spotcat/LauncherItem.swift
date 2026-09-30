@@ -3,6 +3,7 @@ import AppKit
 /// Spotcat 自身的指令，和应用、扩展一起出现在搜索结果里
 enum BuiltinCommand: String, CaseIterable {
     case settings
+    case extensions
     case searchFiles
 
     var id: String { "builtin:\(rawValue)" }
@@ -10,6 +11,7 @@ enum BuiltinCommand: String, CaseIterable {
     var title: String {
         switch self {
         case .settings: return L10n.t("command.settings")
+        case .extensions: return L10n.t("command.extensions")
         case .searchFiles: return L10n.t("command.searchFiles")
         }
     }
@@ -20,6 +22,9 @@ enum BuiltinCommand: String, CaseIterable {
         case .settings:
             return ["Spotcat 设置", "Spotcat Settings", "设置", "偏好设置", "settings", "preferences", "config"]
                 .flatMap(SearchText.keys(for:))
+        case .extensions:
+            return ["扩展", "Extensions", "extension", "插件", "plugins", "扩展市场", "store"]
+                .flatMap(SearchText.keys(for:))
         case .searchFiles:
             return ["搜索文件", "Search Files", "文件", "file", "files", "find", "finder"]
                 .flatMap(SearchText.keys(for:))
@@ -29,6 +34,7 @@ enum BuiltinCommand: String, CaseIterable {
     var icon: (symbol: String, color: NSColor) {
         switch self {
         case .settings: return ("gearshape.fill", .systemGray)
+        case .extensions: return ("puzzlepiece.extension.fill", .systemIndigo)
         case .searchFiles: return ("folder.fill", .systemBlue)
         }
     }
@@ -47,7 +53,7 @@ enum LauncherItem {
     case quicklink(Quicklink, query: String?)
     /// 用默认搜索引擎搜索整段输入（出现在匹配推荐里）
     case webSearch(Quicklink, query: String)
-    /// 输入像文件名/路径时的「搜索文件：xxx」，进入 file: 模式
+    /// 输入像文件名/路径时的「搜索文件：xxx」，进入 file 模式
     case searchFiles(String)
 
     static let chatID = "builtin:chat"

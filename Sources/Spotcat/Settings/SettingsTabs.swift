@@ -599,39 +599,261 @@ private struct AboutRow<Accessory: View>: View {
 // MARK: - 扩展
 
 struct ExtensionsSettingsView: View {
+    enum Page: String, CaseIterable {
+        case installed, store
+    }
+
     @ObservedObject var store: SettingsStore
     @ObservedObject var manager: ExtensionManager
+    @ObservedObject var navigation: SettingsNavigation
+    @ObservedObject var market = ExtensionStore.shared
 
     var body: some View {
-        Form {
-            Section {
-                if manager.extensions.isEmpty {
-                    Text(L10n.t("extensions.empty")).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            HStack(spacing: 4) {
+                PageTab(title: L10n.t("extensions.page.installed"), count: manager.extensions.count,
+                        badge: market.updates.count, selected: navigation.extensionsPage == .installed) {
+                    navigation.extensionsPage = .installed
                 }
-                ForEach(manager.extensions, id: \.id) { ext in
-                    ExtensionRow(ext: ext, store: store)
+                PageTab(title: L10n.t("extensions.page.store"), count: nil, badge: 0,
+                        selected: navigation.extensionsPage == .store) {
+                    navigation.extensionsPage = .store
                 }
-            } footer: {
-                SettingsFooter(L10n.t("extensions.footer"))
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
 
+            Form {
+                switch navigation.extensionsPage {
+                case .installed: installed
+                case .store: storeList
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .onAppear {
+            manager.reload()
+            market.refresh(maxAge: 300)
+        }
+    }
+
+    @ViewBuilder private var installed: some View {
+        let updates = market.updates
+        if !updates.isEmpty {
             Section {
                 HStack {
-                    Button(L10n.t("extensions.openFolder")) {
-                        let url = ExtensionManager.userExtensionsDirectory
-                        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-                        NSWorkspace.shared.open(url)
-                    }
-                    Button(L10n.t("extensions.reload")) {
-                        manager.reload()
-                        store.onExtensionsChange?()
-                    }
+                    Label(L10n.t("store.updatesAvailable", updates.count), systemImage: "arrow.down.circle.fill")
+                        .foregroundStyle(Color.accentColor)
                     Spacer()
+                    Button(L10n.t("store.updateAll")) { market.updateAll() }
                 }
             }
         }
-        .formStyle(.grouped)
-        .onAppear { manager.reload() }
+
+        Section {
+            if manager.extensions.isEmpty {
+                HStack {
+                    Text(L10n.t("extensions.empty")).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L10n.t("extensions.browseStore")) { navigation.extensionsPage = .store }
+                }
+            }
+            ForEach(manager.extensions, id: \.id) { ext in
+                ExtensionRow(ext: ext, store: store, market: market, navigation: navigation)
+            }
+        } footer: {
+            SettingsFooter(L10n.t("extensions.footer"))
+        }
+
+        Section {
+            HStack {
+                Button(L10n.t("extensions.openFolder")) {
+                    let url = ExtensionManager.userExtensionsDirectory
+                    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(url)
+                }
+                Button(L10n.t("extensions.reload")) {
+                    manager.reload()
+                    store.onExtensionsChange?()
+                }
+                Spacer()
+                Link(L10n.t("extensions.develop"), destination: AppLinks.extensionsDocs)
+            }
+        }
+    }
+
+    @ViewBuilder private var storeList: some View {
+        Section {
+            switch market.loadState {
+            case .loading where market.entries.isEmpty, .idle:
+                HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
+            case .failed(let message) where market.entries.isEmpty:
+                HStack {
+                    Text(L10n.t("store.loadFailed", message)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L10n.t("store.retry")) { market.refresh() }
+                }
+            default:
+                ForEach(market.entries) { entry in
+                    StoreEntryRow(entry: entry, manager: manager, market: market)
+                }
+            }
+        } footer: {
+            SettingsFooter(L10n.t("store.footer"))
+        }
+
+        Section {
+            HStack {
+                Button(L10n.t("store.refresh")) { market.refresh() }
+                    .disabled(market.loadState == .loading)
+                Spacer()
+                Link(L10n.t("store.submit"), destination: AppLinks.submitExtension)
+                Link(L10n.t("extensions.develop"), destination: AppLinks.extensionsDocs)
+            }
+        }
+    }
+}
+
+/// 扩展页顶部的标签：选中时浅色圆角底，可带数量和更新角标
+private struct PageTab: View {
+    let title: String
+    let count: Int?
+    /// 有更新的扩展数，大于 0 时显示红点数字
+    let badge: Int
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .fontWeight(selected ? .semibold : .regular)
+                if let count {
+                    Text(verbatim: "\(count)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                if badge > 0 {
+                    Text(verbatim: "\(badge)")
+                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .frame(minWidth: 16, minHeight: 16)
+                        .background(Color.accentColor, in: Capsule())
+                }
+            }
+            .foregroundStyle(selected ? .primary : .secondary)
+            .padding(.horizontal, 12)
+            .frame(height: 28)
+            .background(selected ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// 插件市场里的一个插件：图标、介绍，安装 / 更新 / 已安装
+private struct StoreEntryRow: View {
+    let entry: StoreEntry
+    @ObservedObject var manager: ExtensionManager
+    @ObservedObject var market: ExtensionStore
+
+    private var installed: SpotcatExtension? { manager.extensions.first { $0.id == entry.id } }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            StoreIcon(entry: entry)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(entry.name.text).font(.body.weight(.medium))
+                    Badge(text: L10n.t(entry.official == true ? "extensions.official" : "extensions.community"))
+                    Text(verbatim: "v\(entry.version)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let description = entry.description?.text {
+                    Text(description)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                HStack(spacing: 10) {
+                    if let features = entry.features, !features.isEmpty {
+                        Text(L10n.t("extensions.features", features.count))
+                    }
+                    if let author = entry.author {
+                        Text(L10n.t("extensions.author", author))
+                    }
+                    if let permissions = entry.permissions, !permissions.isEmpty {
+                        let names = permissions.map { L10n.t("extensions.permission.\($0)") }
+                        Text(L10n.t("extensions.permissions", names.joined(separator: L10n.t("extensions.listSeparator"))))
+                    }
+                    if let homepage = entry.homepage {
+                        Link(L10n.t("store.homepage"), destination: homepage)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                if case .failed(let message) = market.tasks[entry.id] {
+                    Text(message).font(.caption).foregroundStyle(.red)
+                }
+            }
+
+            Spacer()
+            action
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder private var action: some View {
+        switch market.tasks[entry.id] {
+        case .downloading(let progress):
+            ProgressView(value: progress).frame(width: 60)
+        case .installing:
+            ProgressView().controlSize(.small)
+        default:
+            if let installed {
+                if installed.source.isStore, Version(entry.version) > Version(installed.manifest.version) {
+                    Button(L10n.t("store.update")) { market.install(entry) }
+                } else {
+                    // 本地 / 开发中的同 id 插件不会被市场覆盖
+                    Text(L10n.t(installed.source.isStore ? "store.installed" : "store.installedLocally"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } else if !entry.isCompatible {
+                Text(L10n.t("store.requiresApp", entry.minAppVersion ?? ""))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button(L10n.t("store.install")) { market.install(entry) }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+}
+
+/// 插件目录里的图标："sf:" 图标本地绘制，图片从 CDN 加载
+private struct StoreIcon: View {
+    let entry: StoreEntry
+
+    var body: some View {
+        if let icon = entry.icon, icon.hasPrefix("sf:") {
+            Image(nsImage: ExtensionIcon.symbolTile(String(icon.dropFirst(3)), color: NSColor(hex: entry.iconColor) ?? .systemBlue))
+                .resizable()
+        } else if let icon = entry.icon, let url = URL(string: icon) {
+            AsyncImage(url: url) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                RoundedRectangle(cornerRadius: 7).fill(Color.primary.opacity(0.06))
+            }
+        } else {
+            Image(nsImage: ExtensionIcon.symbolTile("puzzlepiece.extension.fill", color: NSColor(hex: entry.iconColor) ?? .systemBlue))
+                .resizable()
+        }
     }
 }
 
@@ -639,6 +861,15 @@ struct ExtensionsSettingsView: View {
 private struct ExtensionRow: View {
     let ext: SpotcatExtension
     @ObservedObject var store: SettingsStore
+    @ObservedObject var market: ExtensionStore
+    @ObservedObject var navigation: SettingsNavigation
+
+    private var confirmingUninstall: Binding<Bool> {
+        Binding(
+            get: { navigation.uninstallingExtension == ext.id },
+            set: { if !$0 { navigation.uninstallingExtension = nil } }
+        )
+    }
 
     private var enabled: Bool { store.isExtensionEnabled(ext.id) }
 
@@ -657,7 +888,7 @@ private struct ExtensionRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(ext.manifest.name).font(.body.weight(.medium))
-                        Badge(text: ext.isBuiltIn ? L10n.t("extensions.builtIn") : L10n.t("extensions.local"))
+                        Badge(text: sourceLabel)
                         Text(verbatim: "v\(ext.manifest.version)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -684,14 +915,32 @@ private struct ExtensionRow: View {
 
                 Spacer()
 
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([ext.directory])
-                } label: {
-                    Image(systemName: "folder")
+                if case .downloading(let progress) = market.tasks[ext.id] {
+                    ProgressView(value: progress).frame(width: 60)
+                } else if market.hasUpdate(ext), let entry = market.entry(id: ext.id) {
+                    Button(L10n.t("store.updateTo", entry.version)) { market.install(entry) }
                 }
-                .buttonStyle(.borderless)
+
+                Menu {
+                    Button(L10n.t("extensions.reveal")) {
+                        NSWorkspace.shared.activateFileViewerSelecting([ext.directory])
+                    }
+                    if ext.source != .dev {
+                        Divider()
+                        Button(L10n.t("extensions.uninstall"), role: .destructive) { navigation.uninstallingExtension = ext.id }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
                 .foregroundStyle(.secondary)
-                .help(L10n.t("extensions.reveal"))
+                .confirmationDialog(L10n.t("extensions.uninstallConfirm", ext.manifest.name), isPresented: confirmingUninstall) {
+                    Button(L10n.t("extensions.uninstall"), role: .destructive) { market.uninstall(ext) }
+                } message: {
+                    Text(L10n.t("extensions.uninstallMessage"))
+                }
 
                 Toggle("", isOn: Binding(
                     get: { enabled },
@@ -701,6 +950,16 @@ private struct ExtensionRow: View {
                 .labelsHidden()
             }
             .padding(.vertical, 4)
+        }
+    }
+}
+
+private extension ExtensionRow {
+    var sourceLabel: String {
+        switch ext.source {
+        case .store(let official): return L10n.t(official ? "extensions.official" : "extensions.community")
+        case .local: return L10n.t("extensions.local")
+        case .dev: return L10n.t("extensions.dev")
         }
     }
 }

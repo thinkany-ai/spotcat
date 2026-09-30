@@ -115,6 +115,11 @@ final class ExtensionHostView: NSView {
         header.onDetach = { [weak self] in self?.onDetach?() }
         header.onPin = { [weak self] pinned in self?.onPin?(pinned) }
 
+        // 本地 / 开发中的扩展可以用 Safari 的「开发」菜单调试页面（右键「检查元素」）
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = !ext.source.isStore || AppEnvironment.isDevelopment
+        }
+
         addSubview(header)
         addSubview(bridge.webView)
         bridge.load(ext.mainURL, readAccess: ext.directory)

@@ -2,7 +2,7 @@ import CoreServices
 import Foundation
 
 /// make dev 的页面热更新：用 FSEvents 监听源码里的聊天面板和扩展目录，文件变化时发出通知，
-/// 由 WebBridge 刷新对应的页面。只在设置了 AppEnvironment.sourceRoot 时启用
+/// 由 WebBridge 刷新对应的页面。只在设置了 AppEnvironment.sourceRoot / devExtensionsDirectory 时启用
 enum DevReload {
     static let didChange = Notification.Name("SpotcatDevReloadDidChange")
     /// userInfo 中变化的文件路径（[String]，已解析软链接）
@@ -13,11 +13,10 @@ enum DevReload {
     /// 开始监听（重复调用无副作用），返回是否处于热更新模式
     @discardableResult
     static func start() -> Bool {
-        guard let root = AppEnvironment.sourceRoot else { return false }
+        let dirs = [AppEnvironment.sourceRoot?.appendingPathComponent("Resources/chat"), AppEnvironment.devExtensionsDirectory]
+        let paths = dirs.compactMap { $0?.resolvingSymlinksInPath().path }
+        guard !paths.isEmpty else { return false }
         guard stream == nil else { return true }
-        let paths = ["Resources/chat", "extensions"].map {
-            root.appendingPathComponent($0).resolvingSymlinksInPath().path
-        }
         let callback: FSEventStreamCallback = { _, _, count, eventPaths, _, _ in
             guard let changed = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] else { return }
             let files = Array(changed.prefix(count)).map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }

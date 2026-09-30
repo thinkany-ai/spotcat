@@ -29,9 +29,9 @@ HTML/JS so anyone can write one.
 
 - **Apps** — fuzzy search with word-boundary and acronym matching (`vsc` → Visual Studio Code),
   pinyin for Chinese names (`wyy` → 网易云音乐), frequently used apps rank first.
-- **Files** — `file: report` searches your home folder through the Spotlight index, grouped by
-  folder; wildcards (`file: *.dmg`, `douchat*.dmg`) and path browsing with Tab completion
-  (`file: ~/Down` ⇥). Typing something that looks like a file name suggests a file search.
+- **Files** — `file report` searches your home folder through the Spotlight index, grouped by
+  folder; wildcards (`file *.dmg`, `douchat*.dmg`) and path browsing with Tab completion
+  (`file ~/Down` ⇥). Typing something that looks like a file name suggests a file search.
 - **Web** — type a URL (`github.com`, `localhost:3000`) to open it; quicklinks such as
   `gh spotcat` or `g weather`; any text can be searched with your default engine.
 - **AI chat** — ask anything from the search box, or continue from an extension's result with its
@@ -64,7 +64,7 @@ Requires **macOS 13 Ventura** or later. System translation needs macOS 26.
 | Type | Result |
 |---|---|
 | `cal` | Apps, extensions and commands |
-| `file: invoice` · `file: *.pdf` · `file: ~/Downloads/` | File search / path browsing |
+| `file invoice` · `file *.pdf` · `file ~/Downloads/` | File search / path browsing |
 | `github.com` · `gh spotcat` · `wiki cats` | Open a URL or a quicklink |
 | `%E4%BD%A0` · `SGVsbG8=` · any text | Suggestions: decode, translate, Ask AI, web search |
 | `settings` / `设置` | Open Spotcat settings |
@@ -89,9 +89,11 @@ Pages talk to Spotcat through `window.spotcat` — clipboard, storage, CORS-free
 (`network` permission), language detection, system translation, text-to-speech, the user's AI
 provider (`ai` permission) and `spotcat.chat.open()` to hand results to the built-in chat.
 
-Put your extension in `~/Library/Application Support/Spotcat/Extensions/` (a symlink works) and
-reload it from *Settings › Extensions*. See **[extensions/README.md](extensions/README.md)** for the
-full manifest reference and API, and [`extensions/spotcat.d.ts`](extensions/spotcat.d.ts) for types.
+Extensions are installed on demand from the store in *Settings › Extensions*. Their source, the
+developer docs, the `spotcat.d.ts` types and an agent skill for building extensions live in
+**[thinkany-ai/spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions)**. To debug your
+own, put it in `~/Library/Application Support/Spotcat/Extensions/` (a symlink works) and reload it
+from *Settings › Extensions*; open-source extensions can be submitted there for listing in the store.
 
 ## Build from source
 
@@ -133,7 +135,6 @@ Sources/Spotcat/
 ├── Web/                         WKWebView bridge and the injected window.spotcat runtime
 └── Settings/                    settings window, store, shortcut recorder
 Resources/                       Info.plist, icons, chat page
-extensions/                      built-in extensions (MIT)
 scripts/                         bundle, release, CDN publish, icons, release secrets
 ```
 
@@ -166,5 +167,6 @@ security problems privately as described in [SECURITY.md](SECURITY.md).
 Spotcat is licensed under [AGPL-3.0](LICENSE) © 2026 ThinkAny, LLC. A commercial license without
 the AGPL's copyleft obligations is available — contact support@thinkany.ai.
 
-The built-in extensions, extension docs and `spotcat.d.ts` in [`extensions/`](extensions) are
-[MIT-licensed](extensions/LICENSE), so third-party extensions can use them under any license.
+The official extensions, extension docs and `spotcat.d.ts` in
+[spotcat-extensions](https://github.com/thinkany-ai/spotcat-extensions) are MIT-licensed, so
+third-party extensions can use them under any license.

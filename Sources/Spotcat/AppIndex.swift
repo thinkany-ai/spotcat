@@ -3,7 +3,7 @@ import AppKit
 struct AppItem {
     let name: String
     let url: URL
-    /// 参与匹配的字符串：当前语言的名称、英文名、文件名、中文名的拼音
+    /// 参与匹配的字符串：当前语言的名称、英文名、文件名、中文名及其拼音
     let searchKeys: [String]
 }
 
@@ -75,9 +75,14 @@ final class AppIndex {
             let name = localizedName(of: url, languages: languages) ?? englishName
             let fileName = url.deletingPathExtension().lastPathComponent
 
+            // 界面不是中文时也收录中文名：英文界面下输入「微信」或 weixin 也能找到 WeChat
+            let chineseName = localizedName(of: url, languages: ["zh-Hans", "zh-Hant"])
+
             var keys = [name]
-            for key in [englishName, fileName] where !keys.contains(key) { keys.append(key) }
-            if let pinyin = SearchText.pinyin(of: name) { keys.append(pinyin) }
+            for key in [englishName, fileName, chineseName].compactMap({ $0 }) where !keys.contains(key) { keys.append(key) }
+            for pinyin in [name, chineseName].compactMap({ $0 }).compactMap(SearchText.pinyin) where !keys.contains(pinyin) {
+                keys.append(pinyin)
+            }
 
             return AppItem(name: name, url: url, searchKeys: keys)
         }
