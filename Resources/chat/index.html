@@ -10,11 +10,9 @@
     <button class="icon-btn" id="back" data-i18n-title="back"></button>
     <div class="titles">
       <div class="title" id="title"></div>
-      <button class="model-picker" id="model-picker" data-i18n-title="switchModel">
-        <span class="subtitle" id="subtitle"></span>
-        <span class="model-chevron"></span>
-      </button>
     </div>
+    <button class="icon-btn" id="detach" data-i18n-title="detach"></button>
+    <button class="icon-btn" id="pin" hidden></button>
     <button class="icon-btn" id="history-toggle" data-i18n-title="history"></button>
     <button class="icon-btn" id="new-chat" data-i18n-title="newChat"></button>
   </header>
@@ -54,8 +52,24 @@
   </main>
 
   <footer class="composer">
-    <textarea id="input" rows="1" data-i18n-placeholder="placeholder" spellcheck="false"></textarea>
-    <button class="send" id="send" data-i18n-title="send"></button>
+    <div class="composer-field">
+      <div id="attachments" class="attachments" hidden></div>
+      <div class="composer-row">
+        <div class="attach-control">
+          <button id="attach" class="attach" data-i18n-title="addAttachment" aria-haspopup="menu" aria-expanded="false" aria-controls="attach-menu"></button>
+          <div id="attach-menu" class="attach-menu" role="menu" hidden>
+            <button id="choose-attachments" role="menuitem"><span class="attachment-icon"></span><span data-i18n="addAttachment"></span></button>
+          </div>
+        </div>
+        <textarea id="input" rows="1" data-i18n-placeholder="placeholder" spellcheck="false" data-i18n-title="inputHint"></textarea>
+        <button class="model-picker" id="model-picker" data-i18n-title="switchModel">
+          <span class="subtitle" id="subtitle"></span>
+          <span class="model-chevron"></span>
+        </button>
+        <button class="send" id="send" data-i18n-title="send"></button>
+      </div>
+    </div>
+    <div id="attachment-error" class="attachment-error" role="alert" hidden></div>
   </footer>
 
   <script src="markdown.js"></script>

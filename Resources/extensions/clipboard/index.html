@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Clipboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside>
+    <div class="search-row">
+      <input id="search" type="search" data-i18n-placeholder="search" spellcheck="false" autofocus>
+    </div>
+    <ul id="list"></ul>
+    <div class="list-foot"><span id="status"></span><button id="clear" data-i18n="clear"></button></div>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <span class="meta" id="meta"></span>
+      <span class="buttons">
+        <button id="pin"></button>
+        <button id="copy" data-i18n="copy"></button>
+        <button id="delete" class="danger" data-i18n="delete"></button>
+        <button id="paste" class="primary" data-i18n="paste"></button>
+      </span>
+    </div>
+    <div id="preview"></div>
+    <div class="empty" id="empty"></div>
+    <div class="hint" data-i18n="hint"></div>
+  </main>
+  <div class="toast" id="toast"></div>
+
+<script src="main.js"></script>
+</body>
+</html>

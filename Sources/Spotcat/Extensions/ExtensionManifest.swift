@@ -14,7 +14,7 @@ struct ExtensionManifest: Decodable {
     let iconColor: String?
     /// 入口页面，相对扩展目录，默认 index.html
     let main: String?
-    /// 需要的敏感能力："network"（spotcat.fetch）、"ai"（spotcat.ai，使用用户的 AI 额度）
+    /// 需要的敏感能力："network"（spotcat.fetch）、"ai"（spotcat.ai，使用用户的 AI 额度）、"clipboard"（spotcat.clipboard，剪贴板历史）
     let permissions: [String]?
     /// 默认语言，locales/<语言>.json 缺失的文案从这里取
     let defaultLocale: String?
@@ -24,6 +24,7 @@ struct ExtensionManifest: Decodable {
 enum ExtensionPermission: String {
     case network
     case ai
+    case clipboard
 }
 
 extension ExtensionManifest {
@@ -76,4 +77,6 @@ enum EnterTrigger: String {
     case keyword
     /// 通过内容匹配进入，payload 为匹配到的内容
     case match
+    /// 从主搜索框里扩展提供的条目（spotcat.search.setItems）进入，payload 为条目 id
+    case item
 }

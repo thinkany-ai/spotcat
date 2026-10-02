@@ -55,6 +55,10 @@ enum LauncherItem {
     case webSearch(Quicklink, query: String)
     /// 输入像文件名/路径时的「搜索文件：xxx」，进入 file 模式
     case searchFiles(String)
+    /// 内置扩展随输入给出的即时结果（如计算结果），显示为整行卡片
+    case answer(BuiltinAnswer)
+    /// 网页扩展通过 spotcat.search.setItems 提供的内容（如一条笔记）
+    case indexed(ExtensionSearchIndex.Ref)
 
     static let chatID = "builtin:chat"
     /// 中英文关键词都能搜到 AI 对话
@@ -96,6 +100,8 @@ enum LauncherItem {
         case .quicklink(let link, _): return "quicklink:" + link.id
         case .webSearch(let link, _): return "websearch:" + link.id
         case .searchFiles: return "builtin:searchFilesFor"
+        case .answer(let answer): return answer.id
+        case .indexed(let ref): return ref.id
         }
     }
 
@@ -113,6 +119,8 @@ enum LauncherItem {
         case .webSearch(let link, _): return L10n.t("web.searchWith", link.name)
         case .searchFiles(let term):
             return L10n.t(PathQuery.isPath(term) ? "files.browse" : "files.searchFor", term)
+        case .answer(let answer): return answer.title
+        case .indexed(let ref): return ref.item.title
         }
     }
 
@@ -123,7 +131,7 @@ enum LauncherItem {
         case .chat: return Self.chatKeywords
         case .command(let command): return command.searchKeys
         // 文件由 Spotlight 匹配，网址和带查询词的快捷链接由输入直接生成，不参与本地模糊搜索
-        case .file, .url, .webSearch, .searchFiles: return []
+        case .file, .url, .webSearch, .searchFiles, .answer, .indexed: return []
         case .quicklink(let link, _): return SearchText.keys(for: link.name) + [link.keyword]
         }
     }

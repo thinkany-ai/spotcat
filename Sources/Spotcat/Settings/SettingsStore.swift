@@ -94,6 +94,7 @@ final class SettingsStore: ObservableObject {
     private static let showRecentsKey = "showRecents"
     private static let showSuggestionsKey = "showSuggestions"
     private static let autoCheckUpdatesKey = "autoCheckUpdates"
+    private static let keepOpenKey = "keepOpen"
 
     @Published private(set) var shortcut: Shortcut
     @Published var shortcutError: String?
@@ -158,6 +159,10 @@ final class SettingsStore: ObservableObject {
     @Published var showSuggestions: Bool {
         didSet { saveSearchOption(showSuggestions, Self.showSuggestionsKey) }
     }
+    /// 常驻：启动器失去焦点时不隐藏
+    @Published var keepOpen: Bool {
+        didSet { UserDefaults.standard.set(keepOpen, forKey: Self.keepOpenKey) }
+    }
     @Published var autoCheckUpdates: Bool {
         didSet { UserDefaults.standard.set(autoCheckUpdates, forKey: Self.autoCheckUpdatesKey) }
     }
@@ -205,6 +210,7 @@ final class SettingsStore: ObservableObject {
         let defaults = UserDefaults.standard
         showRecents = defaults.object(forKey: Self.showRecentsKey) as? Bool ?? true
         showSuggestions = defaults.object(forKey: Self.showSuggestionsKey) as? Bool ?? true
+        keepOpen = defaults.bool(forKey: Self.keepOpenKey)
         autoCheckUpdates = defaults.object(forKey: Self.autoCheckUpdatesKey) as? Bool ?? true
         models = ModelsConfig.load()
         refreshLaunchAtLogin()

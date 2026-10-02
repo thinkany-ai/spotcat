@@ -93,6 +93,10 @@ struct GeneralSettingsView: View {
             }
 
             Section(L10n.t("settings.window")) {
+                Toggle(isOn: $store.keepOpen) {
+                    Text(L10n.t("settings.keepOpen"))
+                    Text(L10n.t("settings.keepOpen.help"))
+                }
                 LabeledContent {
                     Button(L10n.t("settings.reset")) {
                         NSApp.sendAction(#selector(AppDelegate.resetPosition), to: nil, from: nil)
@@ -611,7 +615,7 @@ struct ExtensionsSettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
-                PageTab(title: L10n.t("extensions.page.installed"), count: manager.extensions.count,
+                PageTab(title: L10n.t("extensions.page.installed"), count: BuiltinExtensions.all.count + manager.extensions.count,
                         badge: market.updates.count, selected: navigation.extensionsPage == .installed) {
                     navigation.extensionsPage = .installed
                 }
@@ -652,6 +656,9 @@ struct ExtensionsSettingsView: View {
         }
 
         Section {
+            ForEach(BuiltinExtensions.all, id: \.id) { ext in
+                BuiltinExtensionRow(ext: ext, store: store)
+            }
             if manager.extensions.isEmpty {
                 HStack {
                     Text(L10n.t("extensions.empty")).foregroundStyle(.secondary)
@@ -659,7 +666,8 @@ struct ExtensionsSettingsView: View {
                     Button(L10n.t("extensions.browseStore")) { navigation.extensionsPage = .store }
                 }
             }
-            ForEach(manager.extensions, id: \.id) { ext in
+            // 内置的在前
+            ForEach(manager.extensions.filter { $0.source == .builtin } + manager.extensions.filter { $0.source != .builtin }, id: \.id) { ext in
                 ExtensionRow(ext: ext, store: store, market: market, navigation: navigation)
             }
         } footer: {
@@ -925,7 +933,7 @@ private struct ExtensionRow: View {
                     Button(L10n.t("extensions.reveal")) {
                         NSWorkspace.shared.activateFileViewerSelecting([ext.directory])
                     }
-                    if ext.source != .dev {
+                    if ext.source != .dev && ext.source != .builtin {
                         Divider()
                         Button(L10n.t("extensions.uninstall"), role: .destructive) { navigation.uninstallingExtension = ext.id }
                     }
@@ -954,12 +962,51 @@ private struct ExtensionRow: View {
     }
 }
 
+/// 随 App 内置的原生扩展：只有启用开关，不能卸载
+private struct BuiltinExtensionRow: View {
+    let ext: BuiltinExtension
+    @ObservedObject var store: SettingsStore
+
+    var body: some View {
+        let enabled = !ext.canDisable || store.isExtensionEnabled(ext.id)
+        HStack(spacing: 12) {
+            Image(nsImage: ExtensionIcon.symbolTile(ext.icon.symbol, color: ext.icon.color))
+                .resizable()
+                .frame(width: 32, height: 32)
+                .opacity(enabled ? 1 : 0.4)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(ext.name).font(.body.weight(.medium))
+                    Badge(text: L10n.t("extensions.builtin"))
+                }
+                Text(ext.description)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            if ext.canDisable {
+                Toggle("", isOn: Binding(
+                    get: { enabled },
+                    set: { store.setExtension(ext.id, enabled: $0) }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+            }
+        }
+        .padding(.vertical, 4)
+        // 和可展开的扩展行对齐
+        .padding(.leading, 20)
+    }
+}
+
 private extension ExtensionRow {
     var sourceLabel: String {
         switch ext.source {
         case .store(let official): return L10n.t(official ? "extensions.official" : "extensions.community")
         case .local: return L10n.t("extensions.local")
         case .dev: return L10n.t("extensions.dev")
+        case .builtin: return L10n.t("extensions.builtin")
         }
     }
 }

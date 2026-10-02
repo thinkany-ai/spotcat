@@ -63,6 +63,28 @@ enum SpotcatRuntime {
 
             i18n: Object.freeze({ locale, t, apply }),
 
+            paste: (text) => call('paste', { text: String(text) }),
+
+            clipboard: Object.freeze({
+              list: (o = {}) => call('clipboard.list', { query: o.query || '', limit: o.limit }),
+              get: (id) => call('clipboard.get', { id }),
+              thumbnail: (id) => call('clipboard.thumbnail', { id }),
+              copy: (id) => call('clipboard.copy', { id }),
+              paste: (id) => call('clipboard.paste', { id }),
+              pin: (id, pinned = true) => call('clipboard.pin', { id, pinned }),
+              remove: (id) => call('clipboard.remove', { id }),
+              clear: () => call('clipboard.clear'),
+              status: () => call('clipboard.status'),
+              onChange(cb) {
+                call('clipboard.watch');
+                window.addEventListener('spotcat:clipboard.change', () => cb());
+              },
+            }),
+
+            search: Object.freeze({
+              setItems: (items) => call('search.setItems', { items: Array.from(items || []) }),
+            }),
+
             ai: Object.freeze({
               info: (o = {}) => call('ai.info', { model: o.model }),
               chat({ messages, model, onDelta, signal } = {}) {

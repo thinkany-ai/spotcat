@@ -48,6 +48,13 @@ final class ChatView: NSView {
     /// 返回上一级（扩展或搜索）
     var onBack: (() -> Void)?
     var onHide: (() -> Void)?
+    var onDetach: (() -> Void)?
+    /// 独立窗口的图钉控制置顶。
+    var onPin: ((Bool) -> Void)?
+    var onTitleChange: ((String) -> Void)?
+    private(set) var title: String
+    private var isDetached = false
+    private var isPinned = false
 
     private let bridge: WebBridge
     private let agent = AgentRunner()
@@ -65,6 +72,7 @@ final class ChatView: NSView {
         guard let directory = Self.directory else { return nil }
         let l10n = LocaleMessages(directory: directory, defaultLocale: "en")
         var data = request.json
+        title = request.title ?? L10n.t("chat.title")
         data["profile"] = ["name": SettingsStore.shared.nickname.trimmingCharacters(in: .whitespaces)]
         bridge = WebBridge(context: [
             "enter": ["code": "chat", "type": "open", "payload": request.prompt ?? "", "data": data],
@@ -86,6 +94,12 @@ final class ChatView: NSView {
     override func layout() {
         super.layout()
         webView.frame = bounds
+    }
+
+    func setWindowState(detached: Bool, pinned: Bool) {
+        isDetached = detached
+        isPinned = pinned
+        bridge.emit("window.state", ["detached": detached, "pinned": pinned])
     }
 
     /// Esc 先交给页面（如关闭历史列表），页面没处理时再执行 fallback（返回上一级）
@@ -113,6 +127,22 @@ final class ChatView: NSView {
         case "exit":
             reply(true, nil)
             onBack?()
+        case "window.pin":
+            guard isDetached else { reply(false, nil); break }
+            isPinned = args["pinned"] as? Bool ?? false
+            reply(true, nil)
+            onPin?(isPinned)
+        case "window.detach":
+            reply(true, nil)
+            onDetach?()
+        case "window.state":
+            reply(["detached": isDetached, "pinned": isPinned], nil)
+        case "window.title":
+            if let title = args["title"] as? String, !title.isEmpty {
+                self.title = title
+                onTitleChange?(title)
+            }
+            reply(true, nil)
         case "agent.chat":
             runAgent(args, reply: reply)
         case "agent.cancel":
@@ -120,6 +150,8 @@ final class ChatView: NSView {
             reply(true, nil)
         case "models.pick":
             pickModel(args, reply: reply)
+        case "attachments.pick":
+            ChatAttachments.pick(in: window, limit: (args["limit"] as? Int) ?? 4, reply: reply)
         case "history.list":
             reply(ChatHistory.list(), nil)
         case "history.get":
@@ -206,7 +238,7 @@ final class ChatView: NSView {
         let x = (args["x"] as? Double) ?? 0
         let y = (args["y"] as? Double) ?? 0
         let point = NSPoint(x: x, y: webView.isFlipped ? y : webView.bounds.height - y)
-        menu.popUp(positioning: nil, at: point, in: webView)
+        menu.popUp(positioning: args["above"] as? Bool == true ? menu.items.last : nil, at: point, in: webView)
 
         switch picker.result {
         case .model(let id): reply(id, nil)

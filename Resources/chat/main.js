@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 
 const ICONS = {
   back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+  detach: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="13" height="12" rx="2"/><path d="M8 8V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-4 M13 11l7-7M15 4h5v5"/></svg>',
   newChat: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   send: '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
   stop: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" class="fill"/></svg>',
@@ -10,10 +11,13 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   retry: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>',
   context: '<svg viewBox="0 0 24 24"><path d="M8 4h8l4 4v12H8z M16 4v4h4 M4 8v12h4"/></svg>',
+  pin: '<svg viewBox="0 0 24 24"><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.7l-1.8-.9a2 2 0 0 1-1.1-1.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/><path d="M12 17v5"/></svg>',
   history: '<svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M12 7.5V12l3 2"/></svg>',
   search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>',
   folder: '<svg viewBox="0 0 24 24"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg>',
   file: '<svg viewBox="0 0 24 24"><path d="M7 3.5h7l4 4v13H7z M14 3.5v4h4 M9.5 12h6 M9.5 15.5h6"/></svg>',
+  attachment: '<svg viewBox="0 0 24 24"><path d="M8 12.5v-6a4 4 0 0 1 8 0v10a6 6 0 0 1-12 0v-9M8 16.5a2 2 0 0 0 4 0v-10"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   warning: '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z M12 10v4 M12 17v.5"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v6M14 11v6M6 7l1 12a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M9 7V4.5h6V7"/></svg>',
   chevron: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
@@ -40,6 +44,11 @@ const state = {
   /** { role: 'user' | 'assistant', content, streaming?, error?, stopped? } */
   messages: [],
   controller: null,
+  attachments: [],
+  pickingAttachments: false,
+  preparing: false,
+  draftVersion: 0,
+  detached: false,
   ai: { configured: false },
 };
 
@@ -68,7 +77,7 @@ function buildMessages() {
   // 带工具调用的回复存了完整过程（trace），原样带上，追问时模型还能看到之前查到的结果
   const history = state.messages.flatMap((m) => {
     if (m.role === 'assistant' && m.trace?.length) return m.trace;
-    return !m.error && m.content ? [{ role: m.role, content: m.content }] : [];
+    return !m.error && m.content ? [{ role: m.role, content: m.modelContent || m.content }] : [];
   });
   return [{ role: 'system', content: system }, ...history];
 }
@@ -96,16 +105,37 @@ window.addEventListener('spotcat:agent.event', ({ detail: event }) => {
 
 async function send(text) {
   text = text.trim();
-  if (!text || state.controller) return;
-  await refreshInfo();
-
-  state.messages.push({ role: 'user', content: text });
-  if (!state.request.title) setTitle(text);
-  if (!state.chatID) {
-    state.chatID = crypto.randomUUID();
-    state.createdAt = Date.now();
+  if ((!text && !state.attachments.length) || state.controller || state.preparing || state.pickingAttachments) return;
+  const attachments = [...state.attachments];
+  const version = state.draftVersion;
+  state.preparing = true;
+  renderComposer();
+  try {
+    await refreshInfo();
+    if (version !== state.draftVersion) return;
+    if (!state.ai.configured) return showAttachmentError(t('notConfigured'));
+    const content = text || t('attachmentPrompt');
+    const modelContent = attachments.length
+      ? [{ type: 'text', text: content }, ...attachments.map((a) => a.content)]
+      : undefined;
+    state.messages.push({ role: 'user', content, modelContent, attachments: attachments.map(({ content, ...metadata }) => metadata) });
+    if (!state.request.title) setTitle(text || attachments[0]?.name || '');
+    if (!state.chatID) {
+      state.chatID = crypto.randomUUID();
+      state.createdAt = Date.now();
+    }
+    input.value = '';
+    state.attachments = [];
+    showAttachmentError('');
+    renderAttachments();
+    autosize();
+    await generate();
+  } catch (error) {
+    showAttachmentError(error?.message || String(error));
+  } finally {
+    state.preparing = false;
+    renderComposer();
   }
-  await generate();
 }
 
 async function generate() {
@@ -153,7 +183,7 @@ function stop() {
 // 服务商 › 模型 的原生菜单，选中后只作用于当前对话
 async function pickModel() {
   const rect = $('model-picker').getBoundingClientRect();
-  const id = await native('models.pick', { x: rect.left, y: rect.bottom + 4, current: state.model || state.ai.id });
+  const id = await native('models.pick', { x: rect.left, y: rect.top - 6, above: true, current: state.model || state.ai.id });
   if (!id) return refreshInfo(); // 可能刚在「管理模型」里改了设置
   state.model = id;
   await refreshInfo();
@@ -166,6 +196,7 @@ function newChat() {
   state.chatID = null;
   state.model = null;
   state.messages = [];
+  resetDraft();
   state.request = { profile: state.request.profile };
   setTitle('');
   renderContext();
@@ -173,6 +204,7 @@ function newChat() {
   refreshInfo();
   closeHistory();
   $('input').value = '';
+  autosize();
   $('input').focus();
 }
 
@@ -194,7 +226,7 @@ async function saveChat() {
     model: state.model,
     context: state.request.context || [],
     // 生成中的回复先存已有的部分，结束后再存一次
-    messages: state.messages.map(({ role, content, parts, trace, error, stopped }) => ({ role, content, parts, trace, error, stopped })),
+    messages: state.messages.map(({ role, content, modelContent, attachments, parts, trace, error, stopped }) => ({ role, content, modelContent, attachments, parts, trace, error, stopped })),
   };
   try {
     await native('history.save', { chat });
@@ -211,6 +243,7 @@ async function openChat(id) {
   state.createdAt = chat.createdAt || Date.now();
   state.model = chat.model || null;
   state.request = { profile: state.request.profile, title: chat.title, source: chat.source, context: chat.context || [] };
+  resetDraft();
   state.messages = (chat.messages || []).map((m) => ({ ...m, streaming: false }));
   setTitle(chat.title || '');
   renderContext();
@@ -227,6 +260,7 @@ async function deleteChat(id) {
     state.chatID = null;
     state.model = null;
     state.messages = [];
+    resetDraft();
     state.request = { profile: state.request.profile };
     setTitle('');
     renderContext();
@@ -346,7 +380,13 @@ function renderMessage(message, index) {
   el.className = `message ${message.role}`;
 
   if (message.role === 'user') {
-    el.textContent = message.content;
+    if (message.attachments?.length) {
+      const previews = document.createElement('div');
+      previews.className = 'message-attachments';
+      previews.append(...message.attachments.map((attachment) => attachmentCard(attachment, false)));
+      el.append(previews);
+    }
+    el.append(document.createTextNode(message.content));
     return el;
   }
 
@@ -455,7 +495,8 @@ function renderComposer() {
   button.innerHTML = busy ? ICONS.stop : ICONS.send;
   button.title = busy ? t('stop') : t('send');
   button.classList.toggle('busy', busy);
-  button.disabled = !busy && !$('input').value.trim();
+  button.disabled = !busy && (state.preparing || state.pickingAttachments || (!input.value.trim() && !state.attachments.length));
+  $('attach').disabled = state.preparing || state.pickingAttachments || state.attachments.length >= 4;
 }
 
 function renderContext() {
@@ -483,6 +524,7 @@ function renderContext() {
 function setTitle(text) {
   const title = text.replace(/\s+/g, ' ').trim();
   $('title').textContent = title ? (title.length > 40 ? title.slice(0, 40) + '…' : title) : t('newChat');
+  native('window.title', { title: $('title').textContent });
 }
 
 function iconButton(icon, title, onClick) {
@@ -505,33 +547,164 @@ async function copy(text, button) {
 const input = $('input');
 
 function autosize() {
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  const field = document.querySelector('.composer-field');
+  field.classList.remove('expanded');
+  input.style.height = '0px';
+  field.classList.toggle('expanded', input.scrollHeight > 36 || state.attachments.length > 0);
+  const height = Math.max(36, Math.min(input.scrollHeight, 160));
+  input.style.height = height + 'px';
+  input.style.overflowY = input.scrollHeight > height ? 'auto' : 'hidden';
+
   renderComposer();
 }
 
 input.addEventListener('input', autosize);
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+  // 输入法组字中的回车只是上屏（如中文输入法下打英文），不发送。
+  // WebKit 里这次回车的 isComposing 已经是 false，要靠 keyCode 229 识别
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    const text = input.value;
-    if (!text.trim() || state.controller) return;
-    input.value = '';
-    autosize();
-    send(text);
+    send(input.value);
   }
 });
 
-$('send').onclick = () => {
-  if (state.controller) return stop();
-  const text = input.value;
+$('send').onclick = () => state.controller ? stop() : send(input.value);
+window.addEventListener('resize', autosize);
+new ResizeObserver(autosize).observe(input);
+
+function showAttachmentError(message) {
+  $('attachment-error').textContent = message;
+  $('attachment-error').hidden = !message;
+}
+
+function closeAttachmentMenu() {
+  $('attach-menu').hidden = true;
+  $('attach').setAttribute('aria-expanded', 'false');
+}
+
+function resetDraft() {
+  state.draftVersion++;
+  state.attachments = [];
   input.value = '';
+  closeAttachmentMenu();
+  showAttachmentError('');
+  renderAttachments();
   autosize();
-  send(text);
+}
+
+function attachmentCard(attachment, removable) {
+  const card = document.createElement('div');
+  card.className = 'attachment' + (attachment.preview ? ' image' : '');
+  card.title = attachment.name;
+  if (attachment.preview) {
+    const image = document.createElement('img');
+    image.src = attachment.preview;
+    image.alt = attachment.name;
+    card.append(image);
+  } else {
+    card.innerHTML = ICONS.file;
+    const info = document.createElement('div');
+    info.className = 'attachment-info';
+    const name = document.createElement('div');
+    name.className = 'attachment-name';
+    name.textContent = attachment.name;
+    const size = document.createElement('div');
+    size.className = 'attachment-size';
+    size.textContent = attachment.size < 1024 * 1024 ? Math.ceil(attachment.size / 1024) + ' KB' : (attachment.size / (1024 * 1024)).toFixed(1) + ' MB';
+    info.append(name, size);
+    card.append(info);
+  }
+  if (removable) {
+    const remove = document.createElement('button');
+    remove.className = 'attachment-remove';
+    remove.title = t('removeAttachment', { name: attachment.name });
+    remove.setAttribute('aria-label', remove.title);
+    remove.innerHTML = ICONS.close;
+    remove.onclick = () => {
+      state.attachments = state.attachments.filter((a) => a.id !== attachment.id);
+      renderAttachments();
+      renderComposer();
+      input.focus();
+    };
+    card.append(remove);
+  }
+  return card;
+}
+
+function renderAttachments() {
+  $('attachments').hidden = state.attachments.length === 0;
+  $('attachments').replaceChildren(...state.attachments.map((attachment) => attachmentCard(attachment, true)));
+  autosize();
+}
+
+$('attach').onclick = () => {
+  const open = $('attach-menu').hidden;
+  $('attach-menu').hidden = !open;
+  $('attach').setAttribute('aria-expanded', String(open));
+  if (open) $('choose-attachments').focus();
+};
+$('attach').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    $('attach').click();
+  }
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.attach-control')) closeAttachmentMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('attach-menu').hidden) {
+    e.preventDefault();
+    closeAttachmentMenu();
+    $('attach').focus();
+  }
+});
+$('choose-attachments').onclick = async () => {
+  closeAttachmentMenu();
+  const version = state.draftVersion;
+  state.pickingAttachments = true;
+  showAttachmentError('');
+  renderComposer();
+  try {
+    const result = await native('attachments.pick', { limit: 4 - state.attachments.length });
+    if (version !== state.draftVersion) return;
+    state.attachments.push(...(result?.attachments || []));
+    showAttachmentError((result?.errors || []).join('\n'));
+    renderAttachments();
+  } catch (error) {
+    showAttachmentError(error?.message || String(error));
+  } finally {
+    state.pickingAttachments = false;
+    renderComposer();
+    input.focus();
+  }
 };
 
 $('back').onclick = () => spotcat.exit();
 $('new-chat').onclick = newChat;
+// 图钉仅在独立窗口显示，控制窗口置顶。
+function setPinned(pinned) {
+  $('pin').classList.toggle('active', pinned);
+  $('pin').title = t(pinned ? 'unpin' : 'pin');
+}
+$('detach').onclick = () => native('window.detach');
+$('pin').onclick = () => {
+  if (!state.detached) return;
+  const pinned = !$('pin').classList.contains('active');
+  setPinned(pinned);
+  native('window.pin', { pinned });
+};
+function setWindowState({ detached, pinned }) {
+  state.detached = Boolean(detached);
+  document.body.classList.toggle('detached', state.detached);
+  $('back').hidden = state.detached;
+  $('detach').hidden = state.detached;
+  $('pin').hidden = !state.detached;
+  setPinned(Boolean(pinned));
+  autosize();
+}
+window.addEventListener('spotcat:window.state', (e) => setWindowState(e.detail));
 // 顶栏空白处（按钮以外）按下即可拖动面板
 document.querySelector('.topbar').addEventListener('mousedown', (e) => {
   if (e.button !== 0 || e.target.closest('button, input, textarea, a')) return;
@@ -544,6 +717,7 @@ $('history-backdrop').onclick = closeHistory;
 $('history-search').addEventListener('input', renderHistory);
 // Esc 由原生拦截后先问页面：历史打开时只关闭历史，返回 true 表示已处理，不退出聊天
 window.__spotcatEscape = () => {
+  if (!$('attach-menu').hidden) { closeAttachmentMenu(); $('attach').focus(); return true; }
   if ($('history').hidden) return false;
   closeHistory();
   return true;
@@ -559,8 +733,12 @@ window.addEventListener('focus', refreshInfo);
 
 // ---------- 启动 ----------
 
+$('attach').innerHTML = ICONS.newChat;
+document.querySelector('.attachment-icon').innerHTML = ICONS.attachment;
 $('back').innerHTML = ICONS.back;
 $('new-chat').innerHTML = ICONS.newChat;
+$('pin').innerHTML = ICONS.pin;
+$('detach').innerHTML = ICONS.detach;
 $('history-toggle').innerHTML = ICONS.history;
 document.querySelector('.search-icon').innerHTML = ICONS.search;
 document.querySelector('.context-icon').innerHTML = ICONS.context;
@@ -570,6 +748,7 @@ document.querySelector('.spark').innerHTML = ICONS.spark;
 
 spotcat.onEnter(async ({ data }) => {
   state.request = data || {};
+  setWindowState(await native('window.state') || { detached: false, pinned: false });
   setTitle(state.request.title || '');
   renderContext();
   render();

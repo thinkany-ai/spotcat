@@ -10,24 +10,31 @@ final class ExtensionAPI {
     /// nil 表示拥有全部权限（Spotcat 内置面板）
     private let permissions: Set<String>?
     private let storage: ExtensionStorage
+    /// 网页扩展的 id 和第一个功能，spotcat.search.setItems 使用；内置聊天面板没有
+    private let searchScope: (extensionID: String, defaultCode: String)?
     /// 向页面推送事件，由宿主设置
     var emit: ((String, Any) -> Void)?
     private var aiTasks: [Int: Task<Void, Never>] = [:]
+    private var clipboardObserver: NSObjectProtocol?
 
-    init(storageID: String, permissions: Set<String>?) {
+    init(storageID: String, permissions: Set<String>?, searchScope: (extensionID: String, defaultCode: String)? = nil) {
         self.permissions = permissions
+        self.searchScope = searchScope
         storage = ExtensionStorage(extensionID: storageID)
     }
 
     convenience init(ext: SpotcatExtension) {
-        self.init(storageID: ext.id, permissions: Set(ext.manifest.permissions ?? []))
+        self.init(storageID: ext.id, permissions: Set(ext.manifest.permissions ?? []),
+                  searchScope: ext.manifest.features.first.map { (ext.id, $0.code) })
     }
 
-    private func isGranted(_ permission: ExtensionPermission) -> Bool {
+    func isGranted(_ permission: ExtensionPermission) -> Bool {
         permissions?.contains(permission.rawValue) ?? true
     }
 
     func teardown() {
+        if let clipboardObserver { NotificationCenter.default.removeObserver(clipboardObserver) }
+        clipboardObserver = nil
         aiTasks.values.forEach { $0.cancel() }
         aiTasks.removeAll()
         Speaker.shared.stop()
@@ -49,6 +56,10 @@ final class ExtensionAPI {
         case "storage.remove":
             try? storage.set(args["key"] as? String ?? "", value: nil)
             reply(true, nil)
+        case "search.setItems":
+            setSearchItems(args, reply: reply)
+        case let method where method.hasPrefix("clipboard."):
+            clipboard(method, args, reply: reply)
         case "fetch":
             fetch(args, reply: reply)
         case "detectLanguage":
@@ -84,6 +95,109 @@ final class ExtensionAPI {
             return false
         }
         return true
+    }
+
+    // MARK: - 剪贴板历史
+
+    /// clipboard.paste 需要隐藏面板，由宿主（ExtensionHostView）处理；这里只负责数据
+    private func clipboard(_ method: String, _ args: [String: Any], reply: Reply) {
+        guard isGranted(.clipboard) else { return reply(nil, L10n.t("error.permission", "clipboard")) }
+        let history = ClipboardHistory.shared
+        let id = args["id"] as? String ?? ""
+        switch method {
+        case "clipboard.list":
+            let query = (args["query"] as? String ?? "").lowercased().trimmingCharacters(in: .whitespaces)
+            let limit = (args["limit"] as? NSNumber)?.intValue ?? 200
+            let matched = history.entries.filter { entry in
+                guard !query.isEmpty else { return true }
+                let haystack = [entry.text, entry.files?.joined(separator: "\n"), entry.app].compactMap { $0 }.joined(separator: "\n")
+                return haystack.lowercased().contains(query)
+            }
+            // 置顶的在前，其余按时间
+            let sorted = matched.filter(\.pinned) + matched.filter { !$0.pinned }
+            reply(sorted.prefix(max(0, limit)).map(Self.describe), nil)
+        case "clipboard.get":
+            guard let entry = history.entry(id: id) else { return reply(nil, "No clipboard item \(id)") }
+            var item = Self.describe(entry)
+            item["text"] = entry.text
+            item["image"] = history.thumbnail(for: entry)
+            reply(item, nil)
+        case "clipboard.thumbnail":
+            reply(history.entry(id: id).flatMap { history.thumbnail(for: $0, maxSize: 96) }, nil)
+        case "clipboard.copy":
+            reply(history.copy(id: id), nil)
+        case "clipboard.pin":
+            history.setPinned(args["pinned"] as? Bool ?? true, id: id)
+            reply(true, nil)
+        case "clipboard.remove":
+            history.remove(id: id)
+            reply(true, nil)
+        case "clipboard.clear":
+            history.clear()
+            reply(true, nil)
+        case "clipboard.status":
+            reply(["recording": history.isActive], nil)
+        case "clipboard.watch":
+            // 记录到新内容时推送 clipboard.change 事件
+            if clipboardObserver == nil {
+                clipboardObserver = NotificationCenter.default.addObserver(forName: ClipboardHistory.didChange, object: nil, queue: .main) { [weak self] _ in
+                    self?.emit?("clipboard.change", [:])
+                }
+            }
+            reply(true, nil)
+        default:
+            reply(nil, "Unknown method \(method)")
+        }
+    }
+
+    /// 列表用的摘要：文本只给前 300 字，图片不带数据（另取缩略图）
+    private static func describe(_ entry: ClipboardHistory.Entry) -> [String: Any] {
+        var item: [String: Any] = [
+            "id": entry.id,
+            "type": entry.kind.rawValue,
+            "time": Int(entry.date.timeIntervalSince1970 * 1000),
+            "pinned": entry.pinned,
+        ]
+        if let text = entry.text {
+            item["preview"] = String(text.prefix(300))
+            item["length"] = text.count
+        }
+        if let files = entry.files { item["files"] = files }
+        if let width = entry.imageWidth, let height = entry.imageHeight { item["size"] = [width, height] }
+        if let app = entry.app { item["app"] = app }
+        return item
+    }
+
+    // MARK: - 搜索
+
+    /// 把扩展的内容交给 Spotcat 搜索；整体替换，传空数组清除
+    private func setSearchItems(_ args: [String: Any], reply: Reply) {
+        guard let scope = searchScope else { return reply(nil, "search.setItems is only available to extensions") }
+        guard let raw = args["items"] as? [[String: Any]] else { return reply(nil, "search.setItems requires an array of items") }
+        guard raw.count <= ExtensionSearchIndex.maxItems else {
+            return reply(nil, "search.setItems accepts at most \(ExtensionSearchIndex.maxItems) items")
+        }
+        let clip = { (value: Any?, limit: Int) -> String? in (value as? String).map { String($0.prefix(limit)) } }
+        var items: [ExtensionSearchIndex.Item] = []
+        for item in raw {
+            guard let id = item["id"] as? String ?? (item["id"] as? NSNumber)?.stringValue,
+                  let title = clip(item["title"], 200), !title.isEmpty else {
+                return reply(nil, "Each item needs an id and a non-empty title")
+            }
+            items.append(ExtensionSearchIndex.Item(
+                id: id,
+                code: item["code"] as? String ?? scope.defaultCode,
+                title: title,
+                subtitle: clip(item["subtitle"], 300),
+                text: clip(item["text"], 5000)
+            ))
+        }
+        do {
+            try ExtensionSearchIndex.shared.setItems(items, extensionID: scope.extensionID)
+            reply(true, nil)
+        } catch {
+            reply(nil, error.localizedDescription)
+        }
     }
 
     // MARK: - fetch

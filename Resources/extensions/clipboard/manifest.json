@@ -1,0 +1,19 @@
+{
+  "id": "clipboard",
+  "name": "__MSG_name__",
+  "version": "1.0.0",
+  "description": "__MSG_description__",
+  "author": "Spotcat",
+  "icon": "sf:doc.on.clipboard.fill",
+  "iconColor": "#8B5CF6",
+  "main": "index.html",
+  "defaultLocale": "zh-Hans",
+  "permissions": ["clipboard"],
+  "features": [
+    {
+      "code": "history",
+      "title": "__MSG_featureTitle__",
+      "keywords": ["__MSG_kwHistory__", "__MSG_kwClipboard__", "jtb", "clipboard", "clipboard history", "cb", "paste"]
+    }
+  ]
+}

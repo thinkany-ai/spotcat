@@ -51,12 +51,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         settings.onExtensionsChange = { [weak self] in
             self?.launcher.refreshResults()
+            Self.updateClipboardRecording()
         }
+        Self.updateClipboardRecording()
         settings.onLanguageChange = { [weak self] in
             self?.setupMainMenu()
             self?.launcher.localeDidChange()
             self?.settingsWindow.localeDidChange()
         }
+    }
+
+    /// 剪贴板历史只在内置的「剪贴板」扩展启用时记录
+    private static func updateClipboardRecording() {
+        let installed = ExtensionManager.shared.extensions.contains { $0.id == ClipboardHistory.extensionID && $0.source == .builtin }
+        ClipboardHistory.shared.setActive(installed && SettingsStore.shared.isExtensionEnabled(ClipboardHistory.extensionID))
     }
 
     /// 菜单栏不显示（accessory App），但需要 Edit 菜单，设置窗口里的输入框才能用 ⌘C/⌘V 等快捷键
@@ -207,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         reset.target = self
         menu.addItem(reset)
         // 分离出去的扩展窗口，点击切过去
-        let detached = DetachedExtensionWindow.menuItems()
+        let detached = DetachedExtensionWindow.menuItems() + DetachedChatWindow.menuItems()
         if !detached.isEmpty {
             menu.addItem(.separator())
             detached.forEach(menu.addItem)

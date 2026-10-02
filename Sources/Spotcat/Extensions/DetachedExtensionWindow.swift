@@ -16,6 +16,8 @@ final class DetachedExtensionWindow: NSWindow {
         // 独立窗口里「隐藏窗口」没有意义，忽略
         host.onHide = nil
         host.onDetach = nil
+        // 启动器里的「常驻」不带过来，独立窗口默认不置顶
+        host.isPinned = false
         host.onPin = { [weak window] pinned in window?.level = pinned ? .floating : .normal }
         host.onOpenChat = onOpenChat
         all.append(window)
@@ -64,7 +66,8 @@ final class DetachedExtensionWindow: NSWindow {
         toolbarStyle = .unified
         isReleasedWhenClosed = false
         minSize = NSSize(width: 420, height: 320)
-        collectionBehavior = [.fullScreenPrimary]
+        collectionBehavior = [.fullScreenNone]
+        standardWindowButton(.zoomButton)?.isEnabled = false
         setFrame(frame, display: false)
 
         // 和启动器一样的毛玻璃背景，WebView 背景透明

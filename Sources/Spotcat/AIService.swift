@@ -238,7 +238,22 @@ final class AIService {
                     result.append(["role": "user", "content": [block]])
                 }
             default:
-                result.append(["role": "user", "content": message["content"] ?? ""])
+                let content: Any
+                if let parts = message["content"] as? [[String: Any]] {
+                    content = parts.compactMap { part -> [String: Any]? in
+                        if part["type"] as? String == "text" { return part }
+                        guard part["type"] as? String == "image_url",
+                              let image = part["image_url"] as? [String: Any],
+                              let url = image["url"] as? String, url.hasPrefix("data:image/"),
+                              let separator = url.range(of: ";base64,") else { return nil }
+                        return ["type": "image", "source": ["type": "base64",
+                            "media_type": String(url.dropFirst(5).prefix(upTo: separator.lowerBound)),
+                            "data": String(url[separator.upperBound...])]]
+                    }
+                } else {
+                    content = message["content"] ?? ""
+                }
+                result.append(["role": "user", "content": content])
             }
         }
         return result

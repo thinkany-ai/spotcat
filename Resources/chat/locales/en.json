@@ -16,7 +16,9 @@
   "delete": "Delete",
   "back": "Back",
   "newChat": "New Chat",
-  "placeholder": "Ask anything…  ↩ to send · ⇧↩ for new line",
+  "pin": "Keep on top",
+  "unpin": "Don't keep on top",
+  "placeholder": "Ask anything…",
   "emptyTitle": "How can I help?",
   "emptyWithContext": "Ask a follow-up about the context above",
   "notConfigured": "AI is not configured",
@@ -31,5 +33,10 @@
   "stop": "Stop",
   "stopped": "Stopped",
   "error": "Error: {message}",
-  "emptyTitleNamed": "How can I help, {name}?"
+  "emptyTitleNamed": "How can I help, {name}?",
+  "inputHint": "Return to send · Shift+Return for new line",
+  "addAttachment": "Add attachments",
+  "removeAttachment": "Remove {name}",
+  "attachmentPrompt": "Please help me with the attached files.",
+  "detach": "Open in separate window"
 }

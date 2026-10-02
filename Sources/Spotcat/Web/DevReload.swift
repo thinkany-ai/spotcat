@@ -13,7 +13,11 @@ enum DevReload {
     /// 开始监听（重复调用无副作用），返回是否处于热更新模式
     @discardableResult
     static func start() -> Bool {
-        let dirs = [AppEnvironment.sourceRoot?.appendingPathComponent("Resources/chat"), AppEnvironment.devExtensionsDirectory]
+        let dirs = [
+            AppEnvironment.sourceRoot?.appendingPathComponent("Resources/chat"),
+            AppEnvironment.sourceRoot?.appendingPathComponent("Resources/extensions"),
+            AppEnvironment.devExtensionsDirectory,
+        ]
         let paths = dirs.compactMap { $0?.resolvingSymlinksInPath().path }
         guard !paths.isEmpty else { return false }
         guard stream == nil else { return true }

@@ -16,7 +16,9 @@
   "delete": "删除",
   "back": "返回",
   "newChat": "新对话",
-  "placeholder": "问点什么…  ↩ 发送 · ⇧↩ 换行",
+  "pin": "窗口置顶",
+  "unpin": "取消置顶",
+  "placeholder": "问点什么…",
   "emptyTitle": "有什么可以帮你？",
   "emptyWithContext": "可以针对上面的内容继续追问",
   "notConfigured": "尚未配置 AI 服务",
@@ -31,5 +33,10 @@
   "stop": "停止",
   "stopped": "已停止生成",
   "error": "出错了：{message}",
-  "emptyTitleNamed": "{name}，有什么可以帮你？"
+  "emptyTitleNamed": "{name}，有什么可以帮你？",
+  "inputHint": "回车发送 · Shift+回车换行",
+  "addAttachment": "添加附件",
+  "removeAttachment": "移除 {name}",
+  "attachmentPrompt": "请帮我分析这些附件。",
+  "detach": "分离为独立窗口"
 }

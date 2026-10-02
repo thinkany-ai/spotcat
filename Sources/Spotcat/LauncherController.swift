@@ -25,6 +25,8 @@ final class LauncherController: NSObject {
     private let panel = LauncherPanel()
     private let container = FlippedView()
     private let avatarButton = NSButton()
+    /// 常驻：失去焦点时不隐藏。跟随设置里的开关，扩展和聊天顶栏的图钉也改这个设置
+    private var isPinned = false
     private var cancellables = Set<AnyCancellable>()
     private let searchField = NSTextField()
     private let divider = NSBox()
@@ -160,6 +162,13 @@ final class LauncherController: NSObject {
             .sink { [weak self] avatar, nickname in
                 self?.avatarButton.image = NSImage.avatar(avatar, name: nickname, size: Layout.avatarSize)
                 self?.avatarButton.toolTip = nickname.isEmpty ? L10n.t("settings.tab.profile") : nickname
+            }
+            .store(in: &cancellables)
+
+        settings.$keepOpen
+            .sink { [weak self] pinned in
+                self?.isPinned = pinned
+                self?.activeHost?.isPinned = pinned
             }
             .store(in: &cancellables)
 
@@ -308,15 +317,25 @@ final class LauncherController: NSObject {
         } else {
             // 输入是关键词（前缀）时按关键词进入；否则若内容规则也命中，按「匹配」进入并带上内容
             let queryString = String(query)
+            let builtins = BuiltinExtensions.enabled
             let candidates: [LauncherItem] = index.items.map { .app($0) }
                 + extensions.enabledFeatures.map { feature in
                     let trigger: EnterTrigger = !feature.isKeyword(queryString) && feature.matches(text) ? .match : .keyword
                     return .feature(feature, trigger: trigger)
                 }
-                + [.chat(trigger: LauncherItem.chatKeyword(queryString) ? .keyword : .match)]
-                + BuiltinCommand.allCases.map { .command($0) }
-                + SettingsStore.shared.quicklinks.map { .quicklink($0, query: nil) }
-            let pinned = pinnedWebItems(for: text)
+                + builtins.flatMap { $0.items(query: queryString) }
+            // 内置扩展的即时结果（如计算器）放在最前，↩ 直接复制
+            let answers = builtins.flatMap { ext in
+                ext.answers(for: text).map { answer in
+                    ResultSection(title: ext.name, detail: L10n.t("answer.copyHint"), items: [.answer(answer)], layout: .wide)
+                }
+            }
+            // 网址、像文件名的输入、「关键词 内容」的快捷链接放在最前，↩ 直接打开。
+            // 算式里的 "." 会被当成文件名，有计算结果时不再提示搜索文件
+            let pinned = builtins.flatMap { $0.pinnedItems(for: text) }.filter { item in
+                if case .searchFiles = item { return answers.isEmpty }
+                return true
+            }
             let pinnedIDs = Set(pinned.map(\.id))
             let ranked = candidates
                 .compactMap { item -> (LauncherItem, Int)? in
@@ -327,24 +346,27 @@ final class LauncherController: NSObject {
                 .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name.localizedStandardCompare($1.0.name) == .orderedAscending }
                 .map(\.0)
                 .filter { !pinnedIDs.contains($0.id) }
-            // 网址和「关键词 内容」的快捷链接放在最前，↩ 直接打开
             let best = Array((pinned + ranked).prefix(Layout.maxResults))
 
+            // 扩展通过 spotcat.search.setItems 提供的内容（如笔记），每个扩展一个分区
+            let indexed = ExtensionSearchIndex.shared.search(text, in: extensions.enabledFeatures).map { group in
+                ResultSection(title: group.extensionName, detail: nil, items: group.items.map { .indexed($0) }, layout: .list)
+            }
+
             let bestIDs = Set(best.map(\.id))
-            // 任意文本都可以直接问 AI，放在匹配推荐的第一位
-            let askAI: [LauncherItem] = bestIDs.contains(LauncherItem.chatID) ? [] : [.chat(trigger: .match)]
-            // 其次是用默认搜索引擎搜索整段输入（输入本身是网址或快捷链接时不重复出现）
-            let webSearch: [LauncherItem] = pinned.isEmpty
-                ? SettingsStore.shared.searchEngine.map { [.webSearch($0, query: text)] } ?? []
-                : []
+            // 内置扩展的推荐（问 AI、网页搜索）在前，网页扩展的内容匹配在后。
+            // 输入本身是网址、文件名或快捷链接时不再推荐网页搜索
+            let builtinSuggestions = builtins.flatMap { $0.suggestions(for: text) }.filter { item in
+                if case .webSearch = item { return pinned.isEmpty }
+                return !bestIDs.contains(item.id)
+            }
             let matched: [LauncherItem] = options.showSuggestions
-                ? askAI + webSearch + extensions.enabledFeatures
+                ? builtinSuggestions + extensions.enabledFeatures
                     .filter { !bestIDs.contains($0.id) && $0.matches(text) }
                     .map { .feature($0, trigger: .match) }
                 : []
 
-            sections = [
-                ResultSection(title: L10n.t("section.best"), detail: nil, items: best),
+            sections = answers + [ResultSection(title: L10n.t("section.best"), detail: nil, items: best)] + indexed + [
                 ResultSection(title: L10n.t("section.matches"), detail: nil, items: matched),
             ]
         }
@@ -430,33 +452,8 @@ final class LauncherController: NSObject {
         scrollView.documentView = enabled ? fileTree : grid
     }
 
-    /// 输入是网址 → 打开网址；像文件名/路径 → 搜索文件；以快捷链接关键词开头 → 该快捷链接（带上后面的内容）
-    private func pinnedWebItems(for text: String) -> [LauncherItem] {
-        var items: [LauncherItem] = []
-        if let url = WebAddress.url(from: text) {
-            items.append(.url(url))
-        } else if FileQuery.looksLikeFile(text) {
-            items.append(.searchFiles(text))
-        }
-        let parts = text.split(maxSplits: 1, whereSeparator: \.isWhitespace)
-        if let first = parts.first?.lowercased(),
-           let link = SettingsStore.shared.quicklinks.first(where: { !$0.keyword.isEmpty && $0.keyword.lowercased() == first }) {
-            let query = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespaces) : nil
-            if query == nil || link.acceptsQuery {
-                items.append(.quicklink(link, query: query))
-            }
-        }
-        return items
-    }
-
     private func item(forID id: String) -> LauncherItem? {
-        if id.hasPrefix("url:"), let url = URL(string: String(id.dropFirst(4))) { return .url(url) }
-        if id.hasPrefix("quicklink:") {
-            let linkID = String(id.dropFirst("quicklink:".count))
-            return SettingsStore.shared.quicklinks.first { $0.id == linkID }.map { .quicklink($0, query: nil) }
-        }
-        if id == LauncherItem.chatID { return .chat(trigger: .keyword) }
-        if let command = BuiltinCommand.allCases.first(where: { $0.id == id }) { return .command(command) }
+        if let item = BuiltinExtensions.enabled.lazy.compactMap({ $0.item(forID: id) }).first { return item }
         if let file = FileItem(id: id) { return .file(file) }
         if id.hasPrefix("ext:") {
             return extensions.feature(id: id).map { .feature($0, trigger: .keyword) }
@@ -467,13 +464,18 @@ final class LauncherController: NSObject {
     // MARK: - Actions
 
     private func activate(_ item: LauncherItem) {
-        // 「搜索文件：xxx」只是切换到文件搜索，不计入最近使用
-        if case .searchFiles = item {} else { UsageStore.recordLaunch(id: item.id) }
+        // 「搜索文件：xxx」只是切换到文件搜索，即时结果随输入而变，都不计入最近使用
+        switch item {
+        case .searchFiles, .answer, .indexed: break
+        default: UsageStore.recordLaunch(id: item.id)
+        }
         switch item {
         case .app(let app):
             launch(app)
         case .feature(let feature, let trigger):
             enterExtension(feature, trigger: trigger)
+        case .indexed(let ref):
+            enterExtension(ref.feature, trigger: .item, payload: ref.item.id)
         case .command(let command):
             run(command)
         case .file(let file):
@@ -491,6 +493,10 @@ final class LauncherController: NSObject {
             searchField.stringValue = FileQuery.defaultPrefix + term
             search()
             searchField.currentEditor()?.moveToEndOfDocument(nil)
+        case .answer(let answer):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(answer.copyText, forType: .string)
+            hide()
         case .chat(let trigger):
             // 从搜索框带着文字进入时直接提问
             let text = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -507,7 +513,8 @@ final class LauncherController: NSObject {
         }
     }
 
-    private func enterExtension(_ feature: ExtensionFeatureRef, trigger: EnterTrigger) {
+    /// payload 默认取搜索框内容（匹配进入时去掉首尾空白）
+    private func enterExtension(_ feature: ExtensionFeatureRef, trigger: EnterTrigger, payload: String? = nil) {
         guard activeHost == nil, let ext = extensions.owner(of: feature) else { return }
         // 这个功能已经分离成独立窗口：切过去，不在启动器里再开一份
         if let window = DetachedExtensionWindow.window(forFeature: feature.id) {
@@ -516,13 +523,15 @@ final class LauncherController: NSObject {
             return
         }
         let raw = searchField.stringValue
-        let payload = trigger == .match ? raw.trimmingCharacters(in: .whitespacesAndNewlines) : raw
+        let payload = payload ?? (trigger == .match ? raw.trimmingCharacters(in: .whitespacesAndNewlines) : raw)
 
         let host = ExtensionHostView(ext: ext, feature: feature, trigger: trigger, payload: payload)
         host.onExit = { [weak self] in self?.exitExtension() }
         host.onHide = { [weak self] in self?.hide() }
         host.onOpenChat = { [weak self] request in self?.openChat(request) }
         host.onDetach = { [weak self] in self?.detachExtension() }
+        host.isPinned = isPinned
+        host.onPin = { SettingsStore.shared.keepOpen = $0 }
         activeHost = host
         setSearchChromeHidden(true)
 
@@ -586,9 +595,17 @@ final class LauncherController: NSObject {
     }
 
     private func openChat(_ request: ChatRequest) {
+        if request.prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           request.context.isEmpty, request.title == nil, request.source == nil,
+           let window = DetachedChatWindow.all.last {
+            hide()
+            window.bringToFront()
+            return
+        }
         guard chatView == nil, let chat = ChatView(request: request) else { return }
         chat.onBack = { [weak self] in self?.closeChat() }
         chat.onHide = { [weak self] in self?.hide() }
+        chat.onDetach = { [weak self] in self?.detachChat() }
         chatView = chat
 
         if let host = activeHost {
@@ -603,12 +620,25 @@ final class LauncherController: NSObject {
         panel.makeFirstResponder(chat.webView)
     }
 
+    private func detachChat() {
+        guard let chat = chatView else { return }
+        let frame = panel.frame
+        chat.removeFromSuperview()
+        chatView = nil
+        restoreAfterChat()
+        hide()
+        DetachedChatWindow.present(chat, at: frame)
+    }
+
     private func closeChat() {
         guard let chat = chatView else { return }
         chat.teardown()
         chat.removeFromSuperview()
         chatView = nil
+        restoreAfterChat()
+    }
 
+    private func restoreAfterChat() {
         if let host = activeHost {
             host.isHidden = false
             panel.makeFirstResponder(host.webView)
@@ -639,6 +669,8 @@ final class LauncherController: NSObject {
             image = NSWorkspace.shared.icon(forFile: app.url.path)
         case .feature(let feature, _):
             image = extensions.owner(of: feature).map { ExtensionIcon.image(for: $0, feature: feature.feature) } ?? NSImage()
+        case .indexed(let ref):
+            image = extensions.owner(of: ref.feature).map { ExtensionIcon.image(for: $0, feature: ref.feature.feature) } ?? NSImage()
         case .chat:
             image = ExtensionIcon.symbolTile("bubble.left.and.bubble.right.fill", color: Theme.accentNSColor)
         case .command(let command):
@@ -651,6 +683,9 @@ final class LauncherController: NSObject {
             return webIcon(host: link.host)
         case .searchFiles:
             let icon = BuiltinCommand.searchFiles.icon
+            image = ExtensionIcon.symbolTile(icon.symbol, color: icon.color)
+        case .answer(let answer):
+            guard let icon = BuiltinExtensions.get(answer.extensionID)?.icon else { return NSImage() }
             image = ExtensionIcon.symbolTile(icon.symbol, color: icon.color)
         }
         iconCache.setObject(image, forKey: key)
@@ -677,6 +712,8 @@ extension LauncherController: NSTextFieldDelegate {
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        // 输入法组字中的按键（回车上屏、方向键选词等）交给输入法，不触发打开/移动选中
+        guard !textView.hasMarkedText() else { return false }
         switch selector {
         case #selector(NSResponder.moveDown(_:)) where isFileMode:
             fileTree.moveSelection(by: 1)
@@ -724,6 +761,7 @@ extension LauncherController: NSTextFieldDelegate {
 
 extension LauncherController: NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
+        guard !isPinned, panel.attachedSheet == nil else { return }
         hide()
     }
 

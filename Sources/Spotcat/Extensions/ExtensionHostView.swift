@@ -72,6 +72,11 @@ final class ExtensionHostView: NSView {
     var onOpenChat: ((ChatRequest) -> Void)?
     var onDetach: (() -> Void)?
     var onPin: ((Bool) -> Void)?
+    /// 图钉按钮的状态；由外部设置时不触发 onPin
+    var isPinned: Bool {
+        get { header.isPinned }
+        set { header.isPinned = newValue }
+    }
     /// 分离成独立窗口后顶栏放进透明标题栏，和红绿灯同一行
     var headerStyle: BreadcrumbView.Style {
         get { header.style }
@@ -151,6 +156,16 @@ final class ExtensionHostView: NSView {
         case "hideWindow":
             reply(true, nil)
             onHide?()
+        case "paste":
+            // 写入剪贴板，隐藏面板，粘贴到前台应用
+            guard let text = args["text"] as? String else { reply(nil, "paste requires text"); break }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            pasteToFrontApp(reply: reply)
+        case "clipboard.paste":
+            guard api.isGranted(.clipboard) else { reply(nil, L10n.t("error.permission", "clipboard")); break }
+            guard ClipboardHistory.shared.copy(id: args["id"] as? String ?? "") else { reply(nil, "No clipboard item"); break }
+            pasteToFrontApp(reply: reply)
         case "exit":
             reply(true, nil)
             onExit?()
@@ -162,10 +177,20 @@ final class ExtensionHostView: NSView {
         }
         return true
     }
+
+    /// 返回 false 表示缺少辅助功能权限：内容已在剪贴板，面板保持打开，由页面提示用户
+    private func pasteToFrontApp(reply: WebBridge.Reply) {
+        guard AXIsProcessTrusted() else {
+            _ = Paster.paste()
+            return reply(false, nil)
+        }
+        onHide?()
+        reply(Paster.paste(), nil)
+    }
 }
 
 /// 扩展统一顶栏，样式与聊天页顶栏一致：
-/// - 启动器里：[‹ 图标 扩展名 · 功能名 ……… 分离]
+/// - 启动器里：[‹ 图标 扩展名 · 功能名 ……… 常驻 分离]
 /// - 独立窗口里放进透明标题栏：[● ● ● 图标 扩展名 · 功能名 ……… 置顶]
 final class BreadcrumbView: NSView {
     enum Style {
@@ -173,7 +198,7 @@ final class BreadcrumbView: NSView {
 
         var height: CGFloat { self == .launcher ? 54 : 52 }
         /// 与聊天页 .topbar 的 padding（14px 14px 8px 10px）对齐；标题栏里让出红绿灯，并和它垂直居中
-        fileprivate var leading: CGFloat { self == .launcher ? 10 : 80 }
+        fileprivate var leading: CGFloat { self == .launcher ? 10 : 96 }
         fileprivate var top: CGFloat { self == .launcher ? 14 : 10 }
     }
 
@@ -188,7 +213,10 @@ final class BreadcrumbView: NSView {
     private let back = HoverButton(image: BreadcrumbView.symbol("chevron.left"))
     private let detach = HoverButton(image: BreadcrumbView.symbol("macwindow.on.rectangle"))
     private let pin = HoverButton(image: BreadcrumbView.symbol("pin"))
-    private var isPinned = false
+    /// 启动器里是「常驻」（失去焦点不隐藏），独立窗口里是「置顶」
+    var isPinned = false {
+        didSet { updatePin() }
+    }
     private var leadingConstraint: NSLayoutConstraint!
     private var topConstraints: [NSLayoutConstraint] = []
 
@@ -205,8 +233,6 @@ final class BreadcrumbView: NSView {
         detach.setAccessibilityLabel(L10n.t("extension.detach"))
         pin.target = self
         pin.action = #selector(pinClicked)
-        pin.toolTip = L10n.t("extension.pin")
-        pin.setAccessibilityLabel(L10n.t("extension.pin"))
 
         let iconView = NSImageView(image: icon)
         iconView.imageScaling = .scaleProportionallyUpOrDown
@@ -255,9 +281,18 @@ final class BreadcrumbView: NSView {
     private func applyStyle() {
         back.isHidden = style == .titlebar
         detach.isHidden = style == .titlebar
-        pin.isHidden = style == .launcher
+        updatePin()
         leadingConstraint.constant = style.leading
         topConstraints.forEach { $0.constant = style.top }
+    }
+
+    private func updatePin() {
+        let prefix = style == .launcher ? "launcher" : "extension"
+        let label = L10n.t(isPinned ? "\(prefix).unpin" : "\(prefix).pin")
+        pin.image = Self.symbol(isPinned ? "pin.fill" : "pin")
+        pin.isActive = isPinned
+        pin.toolTip = label
+        pin.setAccessibilityLabel(label)
     }
 
     fileprivate static func symbol(_ name: String) -> NSImage {
@@ -276,9 +311,6 @@ final class BreadcrumbView: NSView {
 
     @objc private func pinClicked() {
         isPinned.toggle()
-        pin.image = Self.symbol(isPinned ? "pin.fill" : "pin")
-        pin.isActive = isPinned
-        pin.toolTip = L10n.t(isPinned ? "extension.unpin" : "extension.pin")
         onPin?(isPinned)
     }
 }

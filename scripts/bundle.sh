@@ -49,7 +49,8 @@ else
 fi
 # 内置聊天面板
 cp -R Resources/chat "$APP/Contents/Resources/chat"
-# 扩展不再内置，由插件市场按需安装（仓库 thinkany-ai/spotcat-extensions）
+# 随 App 打包的扩展：依赖原生能力（如剪贴板历史）。其余扩展由插件市场按需安装（仓库 thinkany-ai/spotcat-extensions）
+cp -R Resources/extensions "$APP/Contents/Resources/extensions"
 
 codesign --force --sign - "$APP" >/dev/null
 
