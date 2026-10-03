@@ -4,6 +4,8 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launcher: LauncherController!
     private var hotKey: HotKey?
+    /// 功能的全局快捷键（设置 › 扩展）
+    private var featureHotKeys: [HotKey] = []
     private var statusItem: NSStatusItem!
     private var shortcutTimer: Timer?
     /// 本次运行提示过改用 ⌘Space，之后换上 ⌘Space 时告诉用户已生效
@@ -54,6 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Self.updateClipboardRecording()
         }
         Self.updateClipboardRecording()
+        FeatureShortcuts.shared.onHotKeysChange = { [weak self] in self?.registerFeatureHotKeys() }
+        registerFeatureHotKeys()
         settings.onLanguageChange = { [weak self] in
             self?.setupMainMenu()
             self?.launcher.localeDidChange()
@@ -163,12 +167,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// 重新注册功能的全局快捷键；录制快捷键时全部暂停
+    private func registerFeatureHotKeys() {
+        featureHotKeys = []
+        let shortcuts = FeatureShortcuts.shared
+        guard !shortcuts.isRecording else { return }
+        for (id, shortcut) in shortcuts.hotKeys {
+            let hotKey = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.carbonModifiers) { [weak self] in
+                self?.launcher.open(targetID: id, detached: FeatureShortcuts.shared.detachedTargets.contains(id))
+            }
+            if hotKey.isRegistered {
+                featureHotKeys.append(hotKey)
+            } else {
+                NSLog("%@", "Spotcat: 注册 \(shortcut.displayString)（\(id)）失败")
+            }
+        }
+    }
+
     /// 替换当前全局快捷键；nil 表示只注销
     private func registerHotKey(_ shortcut: Shortcut?) -> Bool {
         hotKey = nil
         guard let shortcut else { return true }
         let newHotKey = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.carbonModifiers) { [weak self] in
-            self?.launcher.toggle()
+            self?.launcher.hotKeyPressed()
         }
         guard newHotKey.isRegistered else { return false }
         hotKey = newHotKey

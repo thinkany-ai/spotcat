@@ -790,7 +790,7 @@ private struct StoreEntryRow: View {
                 }
                 HStack(spacing: 10) {
                     if let features = entry.features, !features.isEmpty {
-                        Text(L10n.t("extensions.features", features.count))
+                        Text(L10n.t(features.count == 1 ? "extensions.feature" : "extensions.features", features.count))
                     }
                     if let author = entry.author {
                         Text(L10n.t("extensions.author", author))
@@ -881,8 +881,15 @@ private struct ExtensionRow: View {
 
     private var enabled: Bool { store.isExtensionEnabled(ext.id) }
 
+    private var isExpanded: Bool { navigation.expandedExtensions.contains(ext.id) }
+
     var body: some View {
-        DisclosureGroup {
+        DisclosureGroup(isExpanded: Binding(
+            get: { isExpanded },
+            set: { expanded in
+                if expanded { navigation.expandedExtensions.insert(ext.id) } else { navigation.expandedExtensions.remove(ext.id) }
+            }
+        )) {
             ForEach(ext.features, id: \.id) { feature in
                 FeatureRow(feature: feature, ext: ext, store: store)
             }
@@ -908,7 +915,7 @@ private struct ExtensionRow: View {
                             .lineLimit(2)
                     }
                     HStack(spacing: 10) {
-                        Text(L10n.t("extensions.features", ext.features.count))
+                        Text(L10n.t(ext.features.count == 1 ? "extensions.feature" : "extensions.features", ext.features.count))
                         if let author = ext.manifest.author {
                             Text(L10n.t("extensions.author", author))
                         }
@@ -916,10 +923,21 @@ private struct ExtensionRow: View {
                             let names = permissions.map { L10n.t("extensions.permission.\($0)") }
                             Text(L10n.t("extensions.permissions", names.joined(separator: L10n.t("extensions.listSeparator"))))
                         }
+                        if ext.features.count > 1, !isExpanded {
+                            Text(L10n.t("shortcuts.expandHint"))
+                        }
                     }
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    // 只有一个功能时快捷键放在描述下面单独一行，不和名称、开关抢宽度
+                    if ext.features.count == 1, let feature = ext.features.first {
+                        FeatureShortcutControls(id: feature.id, alignment: .leading)
+                            .disabled(!store.isFeatureEnabled(feature))
+                            .padding(.top, 4)
+                    }
                 }
+                .layoutPriority(1)
 
                 Spacer()
 
@@ -969,6 +987,28 @@ private struct BuiltinExtensionRow: View {
 
     var body: some View {
         let enabled = !ext.canDisable || store.isExtensionEnabled(ext.id)
+        let targets = ext.shortcutTargets
+        VStack(alignment: .leading, spacing: 8) {
+            header(enabled: enabled, inlineTarget: targets.count == 1 ? targets[0].id : nil)
+            // 有多个可进入的条目时逐个列出（如 Spotcat 的设置、扩展）
+            if targets.count > 1 {
+                ForEach(targets, id: \.id) { target in
+                    HStack {
+                        Text(target.title)
+                        Spacer()
+                        FeatureShortcutControls(id: target.id)
+                    }
+                    .padding(.leading, 44)
+                    .disabled(!enabled)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        // 和可展开的扩展行对齐
+        .padding(.leading, 20)
+    }
+
+    private func header(enabled: Bool, inlineTarget: String?) -> some View {
         HStack(spacing: 12) {
             Image(nsImage: ExtensionIcon.symbolTile(ext.icon.symbol, color: ext.icon.color))
                 .resizable()
@@ -983,7 +1023,13 @@ private struct BuiltinExtensionRow: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                if let inlineTarget {
+                    FeatureShortcutControls(id: inlineTarget, alignment: .leading)
+                        .disabled(!enabled)
+                        .padding(.top, 4)
+                }
             }
+            .layoutPriority(1)
             Spacer()
             if ext.canDisable {
                 Toggle("", isOn: Binding(
@@ -994,9 +1040,6 @@ private struct BuiltinExtensionRow: View {
                 .labelsHidden()
             }
         }
-        .padding(.vertical, 4)
-        // 和可展开的扩展行对齐
-        .padding(.leading, 20)
     }
 }
 
@@ -1038,6 +1081,11 @@ private struct FeatureRow: View {
                 }
             }
             Spacer()
+            // 只有一个功能时快捷键按钮在扩展那一行
+            if ext.features.count > 1 {
+                FeatureShortcutControls(id: feature.id)
+                    .disabled(!store.isFeatureEnabled(feature))
+            }
             Toggle("", isOn: Binding(
                 get: { store.isFeatureEnabled(feature) },
                 set: { store.setFeature(feature.id, enabled: $0) }

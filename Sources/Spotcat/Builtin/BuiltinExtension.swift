@@ -22,6 +22,8 @@ protocol BuiltinExtension: AnyObject {
     func answers(for text: String) -> [BuiltinAnswer]
     /// 从「最近使用」记录的 id 还原条目
     func item(forID id: String) -> LauncherItem?
+    /// 可以设快捷键直接进入的条目（id 需能被 item(forID:) 还原）
+    var shortcutTargets: [(id: String, title: String)] { get }
 }
 
 extension BuiltinExtension {
@@ -31,6 +33,7 @@ extension BuiltinExtension {
     func suggestions(for text: String) -> [LauncherItem] { [] }
     func answers(for text: String) -> [BuiltinAnswer] { [] }
     func item(forID id: String) -> LauncherItem? { nil }
+    var shortcutTargets: [(id: String, title: String)] { [] }
 }
 
 /// 内置扩展给出的即时结果，在搜索结果里显示为一张整行的卡片
@@ -42,6 +45,8 @@ struct BuiltinAnswer {
     let subtitle: String
     /// 回车时复制的文本
     let copyText: String
+    /// 卡片图标，如颜色的色块；nil 时用扩展图标
+    var icon: NSImage? = nil
 
     /// 同一扩展的结果共用一个 id，输入变化时保持选中
     var id: String { "\(extensionID):answer" }
@@ -50,7 +55,7 @@ struct BuiltinAnswer {
 enum BuiltinExtensions {
     /// 顺序即搜索结果里同类条目的顺序（如匹配推荐里 AI 对话在网页搜索之前）
     static let all: [BuiltinExtension] = [
-        Calculator(), ChatExtension(), FilesExtension(), QuicklinksExtension(), SpotcatCommandsExtension(),
+        Calculator(), ColorConverter(), ChatExtension(), FilesExtension(), QuicklinksExtension(), SpotcatCommandsExtension(),
     ]
 
     static var enabled: [BuiltinExtension] {

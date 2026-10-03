@@ -17,6 +17,10 @@ final class SpotcatCommandsExtension: BuiltinExtension {
     func item(forID id: String) -> LauncherItem? {
         commands.first { $0.id == id }.map { .command($0) }
     }
+
+    var shortcutTargets: [(id: String, title: String)] {
+        commands.map { ($0.id, $0.title) }
+    }
 }
 
 /// 内置 AI 对话：关键词进入，或把任意输入直接拿去问 AI
@@ -38,6 +42,10 @@ final class ChatExtension: BuiltinExtension {
     func item(forID id: String) -> LauncherItem? {
         id == LauncherItem.chatID ? .chat(trigger: .keyword) : nil
     }
+
+    var shortcutTargets: [(id: String, title: String)] {
+        [(LauncherItem.chatID, name)]
+    }
 }
 
 /// 文件搜索："file: xxx" 用 Spotlight 搜文件，输入像文件名/路径时提示进入
@@ -57,6 +65,10 @@ final class FilesExtension: BuiltinExtension {
 
     func item(forID id: String) -> LauncherItem? {
         id == BuiltinCommand.searchFiles.id ? .command(.searchFiles) : nil
+    }
+
+    var shortcutTargets: [(id: String, title: String)] {
+        [(BuiltinCommand.searchFiles.id, name)]
     }
 }
 

@@ -36,6 +36,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 /// 当前选中的标签页（Command Line Tools 没有 SwiftUI 宏，不能用 @State）
 final class SettingsNavigation: ObservableObject {
     @Published var selection: SettingsTab? = .general
+    /// 扩展页里展开了功能列表的扩展
+    @Published var expandedExtensions: Set<String> = []
     /// 快捷链接页正在编辑的条目
     @Published var editingQuicklink: String?
     /// 模型页正在编辑的服务商，以及它的测试结果

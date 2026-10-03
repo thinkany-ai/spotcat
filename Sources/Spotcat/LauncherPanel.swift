@@ -27,14 +27,19 @@ final class LauncherPanel: NSPanel {
 
     /// 在事件分发给第一响应者（包括 WKWebView）之前拦截按键，返回 true 表示已处理
     var keyDownInterceptor: ((NSEvent) -> Bool)?
+    /// 修饰键变化（用于判断二级快捷键时主快捷键的修饰键是否已松开）
+    var onFlagsChanged: ((NSEvent) -> Void)?
 
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .flagsChanged { onFlagsChanged?(event) }
         if event.type == .keyDown, keyDownInterceptor?(event) == true { return }
         super.sendEvent(event)
     }
 
     /// App 没有 Edit 菜单，⌘A/⌘C/⌘V/⌘X/⌘Z 默认不会被派发，这里手动转给第一响应者
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // 带 ⌘ 的按键先走这里，二级快捷键（如 ⌘A）要在 ⌘A 全选之前拦下
+        if keyDownInterceptor?(event) == true { return true }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let action: Selector?
         switch (flags, event.charactersIgnoringModifiers?.lowercased()) {

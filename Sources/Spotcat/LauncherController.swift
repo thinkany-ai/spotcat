@@ -54,6 +54,8 @@ final class LauncherController: NSObject {
     private let iconCache = NSCache<NSString, NSImage>()
     /// 区分代码设置 frame 和用户拖动，只保存后者
     private var isSettingFrame = false
+    /// 由主快捷键呼出时仍按着的修饰键（如 ⌘）。松开之前再按某个键，直接进入设了这个二级键的功能
+    private var chordModifiers: NSEvent.ModifierFlags?
 
     override init() {
         super.init()
@@ -79,6 +81,83 @@ final class LauncherController: NSObject {
         panel.isVisible && panel.isKeyWindow ? hide() : show()
     }
 
+    /// 主快捷键：切换显示；呼出时记下仍按着的修饰键，开始等待二级键
+    func hotKeyPressed() {
+        guard !(panel.isVisible && panel.isKeyWindow) else { return hide() }
+        show()
+        let required = SettingsStore.shared.shortcut.flags.intersection(Self.chordModifierMask)
+        chordModifiers = !required.isEmpty && NSEvent.modifierFlags.isSuperset(of: required) ? required : nil
+    }
+
+    private static let chordModifierMask: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+
+    /// 支持在独立窗口打开的快捷键目标
+    static func supportsDetached(_ targetID: String) -> Bool {
+        targetID.hasPrefix("ext:") || targetID == LauncherItem.chatID
+    }
+
+    /// 在独立窗口打开；已经有这个功能的独立窗口时切过去。不支持时返回 false
+    private func openDetached(_ targetID: String) -> Bool {
+        switch item(forID: targetID) {
+        case .feature(let feature, _)?:
+            if let window = DetachedExtensionWindow.window(forFeature: feature.id) {
+                hide()
+                window.bringToFront()
+                return true
+            }
+            guard let ext = extensions.owner(of: feature) else { return false }
+            UsageStore.recordLaunch(id: feature.id)
+            let host = ExtensionHostView(ext: ext, feature: feature, trigger: .keyword, payload: "")
+            hide()
+            DetachedExtensionWindow.present(host, at: detachedFrame()) { [weak self] request in
+                self?.show()
+                self?.openChat(request)
+            }
+            return true
+        case .chat?:
+            UsageStore.recordLaunch(id: LauncherItem.chatID)
+            hide()
+            if let window = DetachedChatWindow.all.last {
+                window.bringToFront()
+            } else if let chat = ChatView(request: ChatRequest()) {
+                DetachedChatWindow.present(chat, at: detachedFrame())
+            }
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// 直接打开的独立窗口放在启动器展开成扩展时的位置
+    private func detachedFrame() -> NSRect {
+        let height = Layout.extensionHeight
+        if let saved = savedTopLeft() {
+            return NSRect(x: saved.x, y: saved.y - height, width: Layout.width, height: height)
+        }
+        let visible = (screenWithMouse() ?? NSScreen.main!).visibleFrame
+        let top = visible.minY + visible.height * 0.75
+        return NSRect(x: visible.midX - Layout.width / 2, y: top - height, width: Layout.width, height: height)
+    }
+
+    /// 用功能快捷键直接进入：AI 对话、扩展功能等（id 同「最近使用」的条目 id）。
+    /// 已经停在这个功能里时再按一次就隐藏，和主快捷键一样是开关。
+    /// detached 为 true 时在独立窗口打开（只有扩展功能和 AI 对话支持，其余照常在面板里打开）
+    func open(targetID: String, detached: Bool = false) {
+        chordModifiers = nil
+        if detached, openDetached(targetID) { return }
+        let isShowingTarget = (targetID == LauncherItem.chatID && chatView != nil)
+            || (chatView == nil && activeHost?.featureID == targetID)
+        if panel.isVisible, panel.isKeyWindow, isShowingTarget { return hide() }
+        guard let item = item(forID: targetID) else { return NSSound.beep() }
+
+        if !(panel.isVisible && panel.isKeyWindow) { show() }
+        if chatView != nil { closeChat() }
+        if activeHost != nil { exitExtension() }
+        searchField.stringValue = ""
+        search()
+        activate(item)
+    }
+
     func show() {
         index.refreshIfNeeded()
         extensions.reloadIfNeeded()
@@ -101,6 +180,7 @@ final class LauncherController: NSObject {
     }
 
     func hide() {
+        chordModifiers = nil
         panel.orderOut(nil)
         lastHiddenAt = Date()
     }
@@ -212,9 +292,20 @@ final class LauncherController: NSObject {
         }
 
         // 搜索里 ⌘↩ 在访达中显示；扩展/聊天里按 Esc 返回上一级。在分发给第一响应者（含 WebView）之前拦截
+        panel.onFlagsChanged = { [weak self] event in
+            guard let self, let chord = self.chordModifiers else { return }
+            if !event.modifierFlags.isSuperset(of: chord) { self.chordModifiers = nil }
+        }
         panel.keyDownInterceptor = { [weak self] event in
             guard let self else { return false }
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            // 二级快捷键：主快捷键的修饰键一直按着，再按设好的键。没设的键照常处理（如 ⌘V 粘贴）
+            if let chord = self.chordModifiers, modifiers == chord,
+               let key = event.characters(byApplyingModifiers: [])?.lowercased(), !key.isEmpty,
+               let target = FeatureShortcuts.shared.target(forChordKey: key) {
+                self.open(targetID: target)
+                return true
+            }
             if self.activeHost == nil, self.chatView == nil {
                 guard event.keyCode == UInt16(kVK_Return), modifiers == .command,
                       let url = self.isFileMode ? self.fileTree.selectedURL : self.grid.selectedItem?.fileURL else { return false }
@@ -685,6 +776,8 @@ final class LauncherController: NSObject {
             let icon = BuiltinCommand.searchFiles.icon
             image = ExtensionIcon.symbolTile(icon.symbol, color: icon.color)
         case .answer(let answer):
+            // 自带图标随结果变化（同一个 id），不缓存
+            if let custom = answer.icon { return custom }
             guard let icon = BuiltinExtensions.get(answer.extensionID)?.icon else { return NSImage() }
             image = ExtensionIcon.symbolTile(icon.symbol, color: icon.color)
         }

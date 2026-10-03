@@ -202,8 +202,8 @@ struct MathExpression {
                 // 3 x 4
                 position += 1
                 value *= try parseUnary()
-            } else if startsOperand(current) {
-                // 隐式乘法：2pi、2(3+4)、(1+2)(3+4)
+            } else if startsOperand(current), current.map({ if case .number = $0 { return false } else { return true } }) == true {
+                // 隐式乘法：2pi、2(3+4)、(1+2)(3+4)；两个数字之间不算（59 130 246、电话号码）
                 value *= try parseUnary()
             } else {
                 return value
