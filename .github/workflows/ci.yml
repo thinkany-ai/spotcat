@@ -17,6 +17,9 @@ jobs:
           sw_vers
           swift --version
 
+      - name: Model endpoint regression tests
+        run: ./scripts/test-model-endpoints.sh
+
       - name: Build universal app (unsigned)
         run: SPOTCAT_CHANNEL=release ./scripts/bundle.sh release --universal
 
