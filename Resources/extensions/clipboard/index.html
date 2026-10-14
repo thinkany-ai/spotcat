@@ -2,33 +2,48 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clipboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <aside>
-    <div class="search-row">
-      <input id="search" type="search" data-i18n-placeholder="search" spellcheck="false" autofocus>
+<body data-view="cards">
+  <header class="topbar">
+    <div class="search-wrap"><span aria-hidden="true">⌕</span><input id="search" type="search" data-i18n-placeholder="search" spellcheck="false" autofocus></div>
+    <div class="view-switch" role="group" data-i18n-title="viewMode">
+      <button id="view-cards" data-i18n="cardsView" aria-pressed="true"></button>
+      <button id="view-list" data-i18n="listView" aria-pressed="false"></button>
     </div>
-    <ul id="list"></ul>
-    <div class="list-foot"><span id="status"></span><button id="clear" data-i18n="clear"></button></div>
-  </aside>
-  <main>
-    <div class="toolbar">
-      <span class="meta" id="meta"></span>
-      <span class="buttons">
-        <button id="pin"></button>
-        <button id="copy" data-i18n="copy"></button>
-        <button id="delete" class="danger" data-i18n="delete"></button>
-        <button id="paste" class="primary" data-i18n="paste"></button>
-      </span>
+    <button id="clear" class="quiet" data-i18n="clear"></button>
+  </header>
+  <nav class="filters" aria-label="Filter">
+    <button data-filter="all" data-i18n="all" aria-pressed="true"></button>
+    <button data-filter="pinned" data-i18n="pinnedOnly" aria-pressed="false"></button>
+    <span class="separator"></span>
+    <button data-filter="text" data-i18n="text" aria-pressed="false"></button>
+    <button data-filter="link" data-i18n="link" aria-pressed="false"></button>
+    <button data-filter="image" data-i18n="image" aria-pressed="false"></button>
+    <button data-filter="files" data-i18n="fileType" aria-pressed="false"></button>
+    <span id="status" role="status"></span>
+  </nav>
+  <div class="workspace">
+    <aside><ul id="list" role="listbox" tabindex="0" data-i18n-title="featureTitle"></ul></aside>
+    <main id="detail">
+      <div class="detail-head"><span class="meta" id="meta"></span><button id="close-preview" class="quiet" data-i18n="closePreview"></button></div>
+      <div id="preview"></div>
+      <div class="empty" id="empty"></div>
+    </main>
+  </div>
+  <footer>
+    <div class="footer-info"><span id="count"></span><span class="hint" id="hint"></span></div>
+    <div class="buttons">
+      <button id="show-preview" data-i18n="preview" aria-expanded="false"></button>
+      <button id="pin"></button>
+      <button id="copy" data-i18n="copy"></button>
+      <button id="delete" class="danger" data-i18n="delete"></button>
+      <button id="paste" class="primary" data-i18n="paste"></button>
     </div>
-    <div id="preview"></div>
-    <div class="empty" id="empty"></div>
-    <div class="hint" data-i18n="hint"></div>
-  </main>
-  <div class="toast" id="toast"></div>
-
+  </footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="main.js"></script>
 </body>
 </html>

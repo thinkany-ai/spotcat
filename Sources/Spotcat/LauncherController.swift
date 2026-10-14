@@ -46,6 +46,9 @@ final class LauncherController: NSObject {
     /// 输入以 "file:" 开头时，结果区显示文件树而不是网格
     private var isFileMode = false
     private var activeHost: ExtensionHostView?
+    /// Remember the ordinary launcher geometry while the clipboard occupies a bottom shelf.
+    private var frameBeforeClipboardShelf: NSRect?
+    private var isClipboardShelf: Bool { chatView == nil && activeHost?.prefersClipboardShelf == true }
     /// 聊天面板盖在扩展（或搜索）之上，返回时回到原处
     private var chatView: ChatView?
     /// 开发版标签，只在搜索界面显示（扩展和聊天有自己的顶栏按钮）
@@ -333,6 +336,15 @@ final class LauncherController: NSObject {
 
     /// 根据结果数调整高度，顶边保持不动
     private func updateFrame(anchorToScreen: Bool = false) {
+        if isClipboardShelf {
+            if frameBeforeClipboardShelf == nil { frameBeforeClipboardShelf = panel.frame }
+            let screen = (anchorToScreen ? screenWithMouse() : panel.screen) ?? NSScreen.main
+            guard let visible = screen?.visibleFrame else { return }
+            setPanelFrame(ClipboardShelfLayout.frame(in: visible))
+            return
+        }
+        let restoredFrame = frameBeforeClipboardShelf
+        frameBeforeClipboardShelf = nil
         let height: CGFloat
         if activeHost != nil || chatView != nil {
             height = Layout.extensionHeight
@@ -348,7 +360,10 @@ final class LauncherController: NSObject {
 
         let top: CGFloat
         let x: CGFloat
-        if anchorToScreen || !panel.isVisible, let saved = savedTopLeft() {
+        if let restoredFrame {
+            top = restoredFrame.maxY
+            x = restoredFrame.minX
+        } else if anchorToScreen || !panel.isVisible, let saved = savedTopLeft() {
             top = saved.y
             x = saved.x
         } else if anchorToScreen || !panel.isVisible {
@@ -362,6 +377,10 @@ final class LauncherController: NSObject {
         }
         // 尺寸不变时不动窗口，避免每次按键都重算毛玻璃和阴影
         let frame = NSRect(x: x, y: top - height, width: Layout.width, height: height)
+        setPanelFrame(frame)
+    }
+
+    private func setPanelFrame(_ frame: NSRect) {
         guard frame != panel.frame else { return }
         let sizeChanged = frame.size != panel.frame.size
         isSettingFrame = true
@@ -621,6 +640,10 @@ final class LauncherController: NSObject {
         host.onHide = { [weak self] in self?.hide() }
         host.onOpenChat = { [weak self] request in self?.openChat(request) }
         host.onDetach = { [weak self] in self?.detachExtension() }
+        host.onPresentationChange = { [weak self, weak host] in
+            guard let self, self.activeHost === host else { return }
+            self.updateFrame()
+        }
         host.isPinned = isPinned
         host.onPin = { SettingsStore.shared.keepOpen = $0 }
         activeHost = host
@@ -730,6 +753,7 @@ final class LauncherController: NSObject {
     }
 
     private func restoreAfterChat() {
+        updateFrame()
         if let host = activeHost {
             host.isHidden = false
             panel.makeFirstResponder(host.webView)
@@ -859,7 +883,7 @@ extension LauncherController: NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
-        guard !isSettingFrame, panel.isVisible else { return }
+        guard !isSettingFrame, panel.isVisible, !isClipboardShelf else { return }
         let topLeft = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
         UserDefaults.standard.set(NSStringFromPoint(topLeft), forKey: Self.savedPositionKey)
     }
