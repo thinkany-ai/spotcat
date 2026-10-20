@@ -68,7 +68,8 @@ enum SpotcatRuntime {
             clipboard: Object.freeze({
               list: (o = {}) => call('clipboard.list', { query: o.query || '', limit: o.limit }),
               get: (id) => call('clipboard.get', { id }),
-              thumbnail: (id) => call('clipboard.thumbnail', { id }),
+              thumbnail: (id, maxSize = 96) => call('clipboard.thumbnail', { id, maxSize }),
+              setView: (mode) => call('clipboard.setView', { mode }),
               copy: (id) => call('clipboard.copy', { id }),
               paste: (id) => call('clipboard.paste', { id }),
               pin: (id, pinned = true) => call('clipboard.pin', { id, pinned }),

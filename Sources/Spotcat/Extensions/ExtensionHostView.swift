@@ -71,6 +71,10 @@ final class ExtensionHostView: NSView {
     var onHide: (() -> Void)?
     var onOpenChat: ((ChatRequest) -> Void)?
     var onDetach: (() -> Void)?
+    /// Only the bundled clipboard may request the bottom shelf layout.
+    var onPresentationChange: (() -> Void)?
+    private(set) var prefersClipboardShelf: Bool
+    private let isBuiltinClipboard: Bool
     var onPin: ((Bool) -> Void)?
     /// 图钉按钮的状态；由外部设置时不触发 onPin
     var isPinned: Bool {
@@ -103,6 +107,9 @@ final class ExtensionHostView: NSView {
             "i18n": ["locale": ext.l10n.locale, "messages": ext.l10n.messages],
         ])
         api = ExtensionAPI(ext: ext)
+        isBuiltinClipboard = ext.source == .builtin && ext.id == ClipboardHistory.extensionID
+        prefersClipboardShelf = isBuiltinClipboard
+            && (ExtensionStorage(extensionID: ext.id).get("viewMode") as? String) != "list"
         sourceName = ext.manifest.name
         // 只显示扩展名：扩展页面里通常有自己的标签页，进入时的功能名切换后就不准了
         title = ext.manifest.name
@@ -162,6 +169,15 @@ final class ExtensionHostView: NSView {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             pasteToFrontApp(reply: reply)
+        case "clipboard.setView":
+            guard isBuiltinClipboard, let mode = args["mode"] as? String,
+                  mode == "cards" || mode == "list" else {
+                reply(nil, "Only the built-in clipboard can select a supported layout")
+                break
+            }
+            prefersClipboardShelf = mode == "cards"
+            onPresentationChange?()
+            reply(true, nil)
         case "clipboard.paste":
             guard api.isGranted(.clipboard) else { reply(nil, L10n.t("error.permission", "clipboard")); break }
             guard ClipboardHistory.shared.copy(id: args["id"] as? String ?? "") else { reply(nil, "No clipboard item"); break }

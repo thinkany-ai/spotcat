@@ -56,6 +56,8 @@ final class ClipboardHistory {
         self.pasteboard = pasteboard
         self.directory = directory
         lastChangeCount = pasteboard.changeCount
+        thumbnails.countLimit = 96
+        thumbnails.totalCostLimit = 32 * 1024 * 1024
         if let data = try? Data(contentsOf: historyURL) {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .millisecondsSince1970
@@ -208,7 +210,8 @@ final class ClipboardHistory {
 
     private func removeFiles(of entry: Entry) {
         if let url = imageURL(entry) { try? FileManager.default.removeItem(at: url) }
-        thumbnails.removeObject(forKey: entry.id as NSString)
+        // Cache keys include size; discard cached images when an entry is removed.
+        thumbnails.removeAllObjects()
     }
 
     func imageURL(_ entry: Entry) -> URL? {
@@ -217,7 +220,8 @@ final class ClipboardHistory {
 
     /// 列表和预览用的缩略图（data URL），按需生成并缓存
     func thumbnail(for entry: Entry, maxSize: CGFloat = 480) -> String? {
-        if let cached = thumbnails.object(forKey: entry.id as NSString) { return cached as String }
+        let cacheKey = "\(entry.id):\(Int(maxSize))" as NSString
+        if let cached = thumbnails.object(forKey: cacheKey) { return cached as String }
         guard let url = imageURL(entry), let image = NSImage(contentsOf: url),
               let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let scale = min(1, maxSize / CGFloat(max(cg.width, cg.height)))
@@ -232,7 +236,7 @@ final class ClipboardHistory {
         NSGraphicsContext.restoreGraphicsState()
         guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
         let dataURL = "data:image/png;base64," + png.base64EncodedString()
-        thumbnails.setObject(dataURL as NSString, forKey: entry.id as NSString)
+        thumbnails.setObject(dataURL as NSString, forKey: cacheKey, cost: dataURL.utf8.count)
         return dataURL
     }
 

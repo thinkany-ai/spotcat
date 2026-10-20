@@ -120,10 +120,11 @@ final class ExtensionAPI {
             guard let entry = history.entry(id: id) else { return reply(nil, "No clipboard item \(id)") }
             var item = Self.describe(entry)
             item["text"] = entry.text
-            item["image"] = history.thumbnail(for: entry)
+            item["image"] = history.thumbnail(for: entry, maxSize: 1440)
             reply(item, nil)
         case "clipboard.thumbnail":
-            reply(history.entry(id: id).flatMap { history.thumbnail(for: $0, maxSize: 96) }, nil)
+            let size = min(1024, max(32, (args["maxSize"] as? NSNumber)?.doubleValue ?? 96))
+            reply(history.entry(id: id).flatMap { history.thumbnail(for: $0, maxSize: CGFloat(size)) }, nil)
         case "clipboard.copy":
             reply(history.copy(id: id), nil)
         case "clipboard.pin":

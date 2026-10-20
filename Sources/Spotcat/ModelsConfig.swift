@@ -22,15 +22,20 @@ struct ModelProvider: Codable, Equatable, Identifiable {
         .openai: "https://api.openai.com/v1",
     ]
 
-    /// 与 Termany 相同的拼接规则：base 已含完整路径则直接用；以 /v1 结尾则补后半段；否则补 /v1/…
+    /// 拼接规则：
+    /// 1. base 已经以 /chat/completions（OpenAI）或 /messages（Anthropic）结尾：原样使用；
+    /// 2. base 以任意版本号段结尾（/v1、/v3、/v4、/v1beta，如智谱 https://open.bigmodel.cn/api/coding/paas/v4）：只补后半段；
+    /// 3. 否则补 /v1/…（如 https://api.deepseek.com → /v1/chat/completions）
     var endpoint: URL? {
-        let base = (apiBase.trimmingCharacters(in: .whitespaces).isEmpty ? Self.defaultBase[kind]! : apiBase)
-            .trimmingCharacters(in: .whitespaces)
+        let base = (apiBase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Self.defaultBase[kind]! : apiBase)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
-        let path = kind == .anthropic ? "/v1/messages" : "/v1/chat/completions"
-        if base.hasSuffix(path) { return URL(string: base) }
-        if base.hasSuffix("/v1") { return URL(string: base + path.dropFirst(3)) }
-        return URL(string: base + path)
+        let suffix = kind == .anthropic ? "/messages" : "/chat/completions"
+        if base.lowercased().hasSuffix(suffix) { return URL(string: base) }
+        if base.range(of: "/v[0-9]+[a-z0-9]*$", options: [.regularExpression, .caseInsensitive]) != nil {
+            return URL(string: base + suffix)
+        }
+        return URL(string: base + "/v1" + suffix)
     }
 
     var hasKey: Bool { !apiKey.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -57,6 +62,9 @@ struct ModelsConfig: Codable, Equatable {
         Preset(id: "deepseek", label: "DeepSeek", kind: .openai, apiBase: "https://api.deepseek.com", model: "deepseek-v4-flash"),
         Preset(id: "minimax", label: "MiniMax", kind: .anthropic, apiBase: "https://api.minimax.io/anthropic", model: "MiniMax-M3"),
         Preset(id: "glm", label: "Z.AI", kind: .anthropic, apiBase: "https://api.z.ai/api/anthropic", model: "GLM-5.2"),
+        // 智谱 BigModel（国内站）：OpenAI 兼容，地址以 /v4 结尾
+        Preset(id: "zhipu-coding", label: "智谱 GLM Coding Plan", kind: .openai, apiBase: "https://open.bigmodel.cn/api/coding/paas/v4", model: "GLM-5.2"),
+        Preset(id: "zhipu", label: "智谱 BigModel", kind: .openai, apiBase: "https://open.bigmodel.cn/api/paas/v4", model: "GLM-5.2"),
         Preset(id: "custom", label: "", kind: .openai, apiBase: "", model: ""),
     ]
 

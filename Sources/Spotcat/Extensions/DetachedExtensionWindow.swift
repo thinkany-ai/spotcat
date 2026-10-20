@@ -16,6 +16,8 @@ final class DetachedExtensionWindow: NSWindow {
         // 独立窗口里「隐藏窗口」没有意义，忽略
         host.onHide = nil
         host.onDetach = nil
+        // A detached window stays user-sized; switching views must not resize the launcher.
+        host.onPresentationChange = nil
         // 启动器里的「常驻」不带过来，独立窗口默认不置顶
         host.isPinned = false
         host.onPin = { [weak window] pinned in window?.level = pinned ? .floating : .normal }
