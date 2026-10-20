@@ -184,24 +184,17 @@ struct ModelsSettingsView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var navigation: SettingsNavigation
 
-    private var modelOptions: [(value: String, label: String)] {
-        store.models.providers.flatMap { provider in
-            provider.models.map { ("\(provider.id)/\($0)", "\(provider.name) / \($0)") }
-        }
-    }
-
     var body: some View {
         Form {
             Section {
-                if modelOptions.isEmpty {
+                if store.models.allModels.isEmpty {
                     LabeledContent(L10n.t("models.default")) {
                         Text(L10n.t("models.noProviders")).foregroundStyle(.secondary)
                     }
                 } else {
-                    Picker(L10n.t("models.default"), selection: $store.models.defaultModel) {
-                        ForEach(modelOptions, id: \.value) { option in
-                            Text(verbatim: option.label).tag(option.value)
-                        }
+                    // 和聊天、扩展里的模型菜单同一个样式：模型名称 + 「服务商 id/模型 id」
+                    LabeledContent(L10n.t("models.default")) {
+                        ModelPopUpButton(selection: $store.models.defaultModel, config: store.models)
                     }
                 }
             } footer: {
@@ -214,29 +207,17 @@ struct ModelsSettingsView: View {
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 6)
                 }
-                ForEach($store.models.providers) { $provider in
-                    if navigation.editingProvider == provider.id {
-                        ProviderEditor(provider: $provider, navigation: navigation) {
-                            commitDraft(into: &provider)
-                            navigation.editingProvider = nil
-                            navigation.providerTest = nil
-                        }
-                        // 每个服务商用独立的编辑视图：复用时分段控件等会把上一个服务商的值写到新服务商上
-                        .id(provider.id)
-                    } else {
-                        ProviderRow(provider: provider,
-                                    onEdit: { beginEditing(provider) },
-                                    onDelete: { store.removeModelProvider(provider.id) })
-                    }
+                ForEach(store.models.providers) { provider in
+                    ProviderRow(provider: provider,
+                                isDefault: store.models.resolvedDefault?.provider.id == provider.id,
+                                onEdit: { beginEditing(provider) },
+                                onDelete: { store.removeModelProvider(provider.id) })
                 }
             } header: {
                 HStack {
                     Text(L10n.t("models.providers"))
                     Spacer()
-                    Button {
-                        let id = store.addModelProvider()
-                        if let provider = store.models.providers.first(where: { $0.id == id }) { beginEditing(provider) }
-                    } label: {
+                    Button(action: beginAdding) {
                         Label(L10n.t("models.addProvider"), systemImage: "plus")
                     }
                     .buttonStyle(.borderless)
@@ -244,30 +225,72 @@ struct ModelsSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $navigation.isEditingProvider) {
+            ProviderEditor(store: store, navigation: navigation, onCancel: endEditing, onSave: save)
+        }
+    }
+
+    /// 新服务商先只存在于弹框里，点「添加」才进列表
+    private func beginAdding() {
+        let preset = ModelsConfig.presets[0]
+        let id = store.models.uniqueID(for: preset.id)
+        let provider = ModelProvider(id: id, name: preset.label, kind: preset.kind, apiBase: preset.apiBase, apiKey: "", models: [])
+        open(SettingsNavigation.ProviderDraft(provider: provider, originalID: nil, providerID: id), models: [preset.model])
     }
 
     private func beginEditing(_ provider: ModelProvider) {
-        navigation.modelsDraft = provider.models.joined(separator: "\n")
+        open(SettingsNavigation.ProviderDraft(provider: provider, originalID: provider.id, providerID: provider.id), models: provider.models)
+    }
+
+    private func open(_ draft: SettingsNavigation.ProviderDraft, models: [ModelEntry]) {
+        var draft = draft
+        draft.setModels(models)
+        navigation.providerDraft = draft
         navigation.providerTest = nil
-        navigation.editingProvider = provider.id
+        navigation.isEditingProvider = true
     }
 
-    private func commitDraft(into provider: inout ModelProvider) {
-        provider.models = Self.parseModels(navigation.modelsDraft)
-        store.normalizeDefaultModel()
+    private func endEditing() {
+        navigation.isEditingProvider = false
+        navigation.providerTest = nil
     }
 
-    static func parseModels(_ text: String) -> [String] {
-        var seen = Set<String>()
-        return text.split(whereSeparator: { $0 == "\n" || $0 == "," })
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    /// 校验 id、地址和模型；有问题时留在弹框里并显示原因
+    private func save() {
+        let draft = navigation.providerDraft
+        let newID = draft.providerID.trimmingCharacters(in: .whitespaces)
+        let others = store.models.providers.filter { $0.id != draft.originalID }
+        var provider = draft.provider
+        provider.models = draft.entries
+        if let problem = ModelsConfig.providerIDProblem(newID, takenBy: others)
+            ?? (provider.endpoint == nil ? L10n.t("models.error.baseURL") : nil)
+            ?? ModelsConfig.modelsProblem(provider.models) {
+            navigation.providerDraft.error = problem
+            return
+        }
+        if provider.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            provider.name = provider.endpoint?.host ?? newID
+        }
+
+        var config = store.models
+        provider.id = newID
+        if let originalID = draft.originalID, let index = config.providers.firstIndex(where: { $0.id == originalID }) {
+            // 先改 id（记别名、默认模型跟着改），再换成编辑后的内容
+            config.renameProvider(originalID, to: newID)
+            config.providers[index] = provider
+        } else {
+            config.providers.append(provider)
+        }
+        config.normalizeDefault()
+        store.models = config
+        endEditing()
     }
 }
 
-/// 服务商一行：名称、接口格式、地址与模型数量；未填 Key 时提示
+/// 服务商一行：名称、接口格式、默认、未填 Key，下面是 id、地址与模型数量
 private struct ProviderRow: View {
     let provider: ModelProvider
+    let isDefault: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -279,22 +302,15 @@ private struct ProviderRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(provider.name.isEmpty ? L10n.t("quicklinks.untitled") : provider.name).fontWeight(.medium)
-                    Text(L10n.t(provider.kind == .anthropic ? "models.kind.anthropic" : "models.kind.openai"))
-                        .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4))
-                        .foregroundStyle(.secondary)
-                    if !provider.hasKey {
-                        Text(L10n.t("models.noKey"))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.orange)
-                    }
+                    tag(L10n.t(provider.kind == .anthropic ? "models.kind.anthropic" : "models.kind.openai"), color: .secondary)
+                    if isDefault { tag(L10n.t("models.defaultBadge"), color: .accentColor) }
+                    if !provider.hasKey { tag(L10n.t("models.noKey"), color: .orange) }
                 }
-                Text("\(provider.endpoint?.host ?? "—") · \(L10n.t("models.count", provider.models.count))")
+                Text("\(provider.id) · \(provider.endpoint?.host ?? "—") · \(L10n.t(provider.models.count == 1 ? "models.countOne" : "models.count", provider.models.count))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
             Spacer(minLength: 12)
             Button(action: onEdit) { Image(systemName: "pencil") }
@@ -309,33 +325,65 @@ private struct ProviderRow: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2, perform: onEdit)
     }
+
+    private func tag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
+            .foregroundStyle(color)
+    }
 }
 
-/// 展开编辑服务商：预设、接口格式、名称、地址、Key、模型列表、测试连接
+/// 展开编辑服务商：预设、接口格式、id 和名称、地址、Key、模型（id + 显示名称）、测试连接
 private struct ProviderEditor: View {
-    @Binding var provider: ModelProvider
+    @ObservedObject var store: SettingsStore
     @ObservedObject var navigation: SettingsNavigation
-    let onDone: () -> Void
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    private var provider: ModelProvider { navigation.providerDraft.provider }
+    private var providerBinding: Binding<ModelProvider> {
+        Binding(get: { navigation.providerDraft.provider }, set: { navigation.providerDraft.provider = $0 })
+    }
+
+    private static let idWidth: CGFloat = 190
+
+    private var draft: Binding<SettingsNavigation.ProviderDraft> {
+        Binding(get: { navigation.providerDraft }, set: { navigation.providerDraft = $0 })
+    }
 
     private var presetID: Binding<String> {
         Binding(
-            get: {
-                let base = provider.apiBase.replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
-                return ModelsConfig.presets.first { $0.id != "custom" && $0.apiBase == base && $0.kind == provider.kind }?.id ?? "custom"
-            },
+            get: { ModelsConfig.preset(matching: provider)?.id ?? "custom" },
             set: { id in
                 guard let preset = ModelsConfig.presets.first(where: { $0.id == id }), id != "custom" else { return }
-                provider.kind = preset.kind
-                provider.name = preset.label
-                provider.apiBase = preset.apiBase
-                navigation.modelsDraft = preset.model
+                navigation.providerDraft.provider.kind = preset.kind
+                navigation.providerDraft.provider.name = preset.label
+                navigation.providerDraft.provider.apiBase = preset.apiBase
+                navigation.providerDraft.setModels([preset.model])
+                if navigation.providerDraft.isNew && !navigation.providerDraft.idEdited {
+                    navigation.providerDraft.providerID = store.models.uniqueID(for: preset.id)
+                }
+                navigation.providerDraft.error = nil
                 navigation.providerTest = nil
             }
         )
     }
 
+    private var providerID: Binding<String> {
+        Binding(get: { navigation.providerDraft.providerID }, set: {
+            navigation.providerDraft.providerID = $0
+            navigation.providerDraft.idEdited = true
+            navigation.providerDraft.error = nil
+        })
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.t(navigation.providerDraft.isNew ? "models.addProvider" : "models.editProvider"))
+                .font(.headline)
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
                     label(L10n.t("models.form.preset"))
@@ -349,7 +397,7 @@ private struct ProviderEditor: View {
                 }
                 GridRow {
                     label(L10n.t("models.form.kind"))
-                    Picker("", selection: $provider.kind) {
+                    Picker("", selection: providerBinding.kind) {
                         Text(L10n.t("models.kind.anthropic")).tag(ModelProvider.Kind.anthropic)
                         Text(L10n.t("models.kind.openai")).tag(ModelProvider.Kind.openai)
                     }
@@ -357,13 +405,24 @@ private struct ProviderEditor: View {
                     .fixedSize()
                 }
                 GridRow {
-                    label(L10n.t("models.form.name"))
-                    TextField("", text: $provider.name, prompt: Text(L10n.t("models.form.namePlaceholder")))
+                    label(L10n.t("models.form.provider"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            columnHeader("ID").frame(width: Self.idWidth, alignment: .leading)
+                            columnHeader(L10n.t("models.form.name"))
+                        }
+                        HStack(spacing: 8) {
+                            TextField("", text: providerID, prompt: Text(verbatim: "openrouter"))
+                                .frame(width: Self.idWidth)
+                            TextField("", text: providerBinding.name, prompt: Text(L10n.t("models.form.namePlaceholder")))
+                        }
+                        columnHeader(L10n.t("models.form.idHint"))
+                    }
                 }
                 GridRow {
                     label("Base URL")
                     VStack(alignment: .leading, spacing: 4) {
-                        TextField("", text: $provider.apiBase, prompt: Text(verbatim: ModelProvider.defaultBase[provider.kind] ?? ""))
+                        TextField("", text: providerBinding.apiBase, prompt: Text(verbatim: ModelProvider.defaultBase[provider.kind] ?? ""))
                         Text(L10n.t("models.form.endpoint", provider.endpoint?.absoluteString ?? "—"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -374,14 +433,11 @@ private struct ProviderEditor: View {
                 }
                 GridRow {
                     label("API Key")
-                    SecureField("", text: $provider.apiKey, prompt: Text(verbatim: "sk-..."))
+                    SecureField("", text: providerBinding.apiKey, prompt: Text(verbatim: "sk-..."))
                 }
                 GridRow {
                     label(L10n.t("models.form.models"))
-                    TextField("", text: $navigation.modelsDraft,
-                              prompt: Text(verbatim: provider.kind == .anthropic ? "claude-opus-4-8" : "deepseek-chat"),
-                              axis: .vertical)
-                        .lineLimit(2...6)
+                    modelList
                 }
             }
             .textFieldStyle(.roundedBorder)
@@ -390,18 +446,57 @@ private struct ProviderEditor: View {
             .multilineTextAlignment(.leading)
 
             HStack(spacing: 10) {
-                testStatus
+                status
                 Spacer(minLength: 12)
                 Button(L10n.t("models.test.run"), action: runTest)
                     .disabled(navigation.providerTest == .running)
-                Button(L10n.t("quicklinks.done"), action: onDone)
+                Button(L10n.t("models.cancel"), action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Button(L10n.t(navigation.providerDraft.isNew ? "models.add" : "quicklinks.done"), action: onSave)
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.08)))
-        .padding(.vertical, 6)
+        .padding(24)
+        .frame(width: 600)
+    }
+
+    /// 一行一个模型：左边 id（发给接口），右边显示名称（可选）
+    private var modelList: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                columnHeader("ID").frame(width: Self.idWidth, alignment: .leading)
+                columnHeader(L10n.t("models.form.displayName"))
+            }
+            ForEach(draft.models) { $row in
+                HStack(spacing: 8) {
+                    TextField("", text: $row.modelID,
+                              prompt: Text(verbatim: provider.kind == .anthropic ? "claude-opus-5-5" : "deepseek-v4-flash"))
+                        .frame(width: Self.idWidth)
+                    TextField("", text: $row.title, prompt: Text(L10n.t("models.form.sameAsID")))
+                    Button {
+                        navigation.providerDraft.models.removeAll { $0.id == row.id }
+                        if navigation.providerDraft.models.isEmpty { navigation.providerDraft.setModels([]) }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+                    .help(L10n.t("models.form.removeModel"))
+                }
+            }
+            Button {
+                navigation.providerDraft.models.append(.init(modelID: "", title: ""))
+            } label: {
+                Label(L10n.t("models.form.addModel"), systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            .font(.callout)
+        }
+        .onChange(of: navigation.providerDraft.models) { _ in navigation.providerDraft.error = nil }
+    }
+
+    private func columnHeader(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 
     /// 左侧标签列：右对齐成一列（macOS 表单惯例）
@@ -412,33 +507,46 @@ private struct ProviderEditor: View {
     }
 
     @ViewBuilder
-    private var testStatus: some View {
-        switch navigation.providerTest {
-        case .running:
-            ProgressView().controlSize(.small)
-        case .passed(let model):
-            Label(L10n.t("models.test.passed", model), systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.callout)
-        case .failed(let message):
-            Label(message, systemImage: "xmark.octagon.fill")
+    private var status: some View {
+        if let error = navigation.providerDraft.error {
+            Label(error, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
                 .font(.callout)
-                .lineLimit(2)
-                .textSelection(.enabled)
-        case nil:
-            EmptyView()
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            switch navigation.providerTest {
+            case .running:
+                ProgressView().controlSize(.small)
+            case .passed(let model):
+                Label(L10n.t("models.test.passed", model), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.callout)
+            case .failed(let message):
+                Label(message, systemImage: "xmark.octagon.fill")
+                    .foregroundStyle(.red)
+                    .font(.callout)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+            case nil:
+                EmptyView()
+            }
         }
     }
 
     private func runTest() {
         var candidate = provider
-        candidate.models = ModelsSettingsView.parseModels(navigation.modelsDraft)
+        candidate.models = navigation.providerDraft.entries
+        if let problem = (candidate.endpoint == nil ? L10n.t("models.error.baseURL") : nil) ?? ModelsConfig.modelsProblem(candidate.models) {
+            navigation.providerDraft.error = problem
+            return
+        }
+        navigation.providerDraft.error = nil
         navigation.providerTest = .running
         Task { @MainActor in
             do {
                 _ = try await AIService.shared.test(candidate)
-                navigation.providerTest = .passed(candidate.models.first ?? "")
+                navigation.providerTest = .passed(candidate.models.first?.displayTitle ?? "")
             } catch {
                 navigation.providerTest = .failed(error.localizedDescription)
             }

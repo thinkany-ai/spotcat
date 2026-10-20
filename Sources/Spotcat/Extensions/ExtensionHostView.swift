@@ -178,6 +178,17 @@ final class ExtensionHostView: NSView {
             prefersClipboardShelf = mode == "cards"
             onPresentationChange?()
             reply(true, nil)
+        case "ai.pickModel":
+            // 弹出和设置、聊天里一样的模型菜单；选「跟随默认模型」返回空字符串，取消返回 null
+            guard api.isGranted(.ai) else { reply(nil, L10n.t("error.permission", "ai")); break }
+            let point = NSPoint(x: (args["x"] as? Double) ?? 0, y: (args["y"] as? Double) ?? 0)
+            let options = ModelMenu.Options(current: args["current"] as? String,
+                                            includeDefault: args["includeDefault"] as? Bool ?? false)
+            switch ModelMenu.popUp(in: webView, at: point, above: false, options: options) {
+            case .model(let id): reply(id, nil)
+            case .followDefault: reply("", nil)
+            case .manage, nil: reply(nil, nil)
+            }
         case "clipboard.paste":
             guard api.isGranted(.clipboard) else { reply(nil, L10n.t("error.permission", "clipboard")); break }
             guard ClipboardHistory.shared.copy(id: args["id"] as? String ?? "") else { reply(nil, "No clipboard item"); break }

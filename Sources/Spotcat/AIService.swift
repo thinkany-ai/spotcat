@@ -27,7 +27,7 @@ final class AIService {
         guard let target = SettingsStore.shared.models.resolve(model), target.provider.hasKey else {
             throw AIError.notConfigured
         }
-        return try await chat(messages: messages, provider: target.provider, model: target.model, onDelta: onDelta)
+        return try await chat(messages: messages, provider: target.provider, model: target.model.id, onDelta: onDelta)
     }
 
     @MainActor
@@ -265,7 +265,7 @@ final class AIService {
         guard provider.hasKey else { throw AIError.notConfigured }
         guard let model = provider.models.first else { throw AIError.server(L10n.t("models.test.noModel")) }
         let reply = try await chat(messages: [["role": "user", "content": "Reply with the single word: OK"]],
-                                   provider: provider, model: model)
+                                   provider: provider, model: model.id)
         return reply.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

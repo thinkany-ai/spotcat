@@ -79,13 +79,29 @@ final class ExtensionAPI {
             (NSApp.delegate as? AppDelegate)?.showSettings(tab: tab)
             reply(true, nil)
         case "ai.info":
-            let target = SettingsStore.shared.models.resolve(args["model"] as? String)
+            let config = SettingsStore.shared.models
+            let requested = (args["model"] as? String).map(config.canonical)
+            let target = config.resolve(args["model"] as? String)
             reply([
                 "configured": target?.provider.hasKey ?? false,
-                "id": target.map { "\($0.provider.id)/\($0.model)" } ?? "",
-                "model": target?.model ?? "",
+                "id": target.map { ModelsConfig.reference($0.provider, $0.model) } ?? "",
+                // model 是显示名称，modelId 是发给接口的 id
+                "model": target?.model.displayTitle ?? "",
+                "modelId": target?.model.id ?? "",
+                // 指定的模型是否还在（服务商改过 id 的旧引用也算）；不在时上面返回的是默认模型
+                "exists": requested.map { ref in config.allModels.contains { ModelsConfig.reference($0.provider, $0.model) == ref } } ?? true,
                 "provider": target?.provider.name ?? "",
             ], nil)
+        case "ai.models":
+            // 所有已配置的模型，供扩展让用户选择；不含 Key
+            guard isGranted(.ai) else { reply(nil, L10n.t("error.permission", "ai")); break }
+            let config = SettingsStore.shared.models
+            let defaultID = config.resolvedDefault.map { ModelsConfig.reference($0.provider, $0.model) }
+            reply(config.allModels.map { provider, model -> [String: Any] in
+                let id = ModelsConfig.reference(provider, model)
+                return ["id": id, "model": model.displayTitle, "modelId": model.id, "provider": provider.name,
+                        "configured": provider.hasKey, "default": id == defaultID]
+            }, nil)
         case "ai.chat":
             aiChat(args, reply: reply)
         case "ai.cancel":

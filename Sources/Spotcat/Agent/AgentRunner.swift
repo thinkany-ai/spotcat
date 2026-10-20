@@ -21,7 +21,7 @@ final class AgentRunner {
         guard let target = SettingsStore.shared.models.resolve(model), target.provider.hasKey else {
             throw AIError.notConfigured
         }
-        let modelKey = "\(target.provider.id)/\(target.model)"
+        let modelKey = ModelsConfig.reference(target.provider, target.model)
         var conversation = Self.withToolGuide(messages)
         var added: [[String: Any]] = []
         let emitText: (String) -> Void = { onEvent(["type": "text", "delta": $0]) }
@@ -32,7 +32,7 @@ final class AgentRunner {
             do {
                 turn = try await AIService.shared.turn(
                     messages: conversation, tools: useTools ? AgentTools.all : nil,
-                    provider: target.provider, model: target.model, onText: emitText
+                    provider: target.provider, model: target.model.id, onText: emitText
                 )
             } catch let error as AIError where useTools && added.isEmpty && Self.isToolsUnsupported(error) {
                 // 模型不支持工具：记下来，按普通对话重试
@@ -40,7 +40,7 @@ final class AgentRunner {
                 Self.modelsWithoutTools.insert(modelKey)
                 turn = try await AIService.shared.turn(
                     messages: Self.stripToolGuide(conversation), tools: nil,
-                    provider: target.provider, model: target.model, onText: emitText
+                    provider: target.provider, model: target.model.id, onText: emitText
                 )
             }
 

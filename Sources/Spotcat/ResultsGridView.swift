@@ -41,8 +41,29 @@ final class ResultsGridView: NSView {
     private(set) var selectedIndex = 0
     private var tiles: [ResultTileView] = []
     private var headers: [SectionHeaderView] = []
+    /// 悬停由网格统一跟踪：格子各自靠 entered/exited 维护，复用移动时会丢 exited 事件，留下多个残留高亮。
+    private var hoverTrackingArea: NSTrackingArea?
+    private var hoveredIndex: Int?
 
     override var isFlipped: Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        hoverTrackingArea = area
+        syncHover()
+    }
+
+    override func mouseEntered(with event: NSEvent) { setHovered(tileIndex(at: convert(event.locationInWindow, from: nil))) }
+    override func mouseMoved(with event: NSEvent) { setHovered(tileIndex(at: convert(event.locationInWindow, from: nil))) }
+    override func mouseExited(with event: NSEvent) { setHovered(nil) }
+
+    override func scrollWheel(with event: NSEvent) {
+        super.scrollWheel(with: event)
+        syncHover()
+    }
 
     /// 重新布局，返回内容总高度
     /// keepSelection：同一次查询的结果补充到达时（如文件搜索），保持用户已选中的条目
@@ -103,7 +124,10 @@ final class ResultsGridView: NSView {
             }
         }
 
-        for tile in tiles[tileIndex...] { tile.isHidden = true }
+        for tile in tiles[tileIndex...] {
+            tile.isHidden = true
+            tile.isHovered = false
+        }
         for header in headers[sections.count...] { header.isHidden = true }
 
         let height = sections.isEmpty ? 0 : y - Metrics.sectionSpacing + Metrics.bottomPadding
@@ -113,6 +137,7 @@ final class ResultsGridView: NSView {
         } else {
             tiles[selectedIndex].scrollToVisible(tiles[selectedIndex].bounds)
         }
+        syncHover()
         return height
     }
 
@@ -144,6 +169,26 @@ final class ResultsGridView: NSView {
         tiles[index].isSelected = true
         // 露出一点上下文，滚到区块边缘时标题也能看见
         tiles[index].scrollToVisible(tiles[index].bounds.insetBy(dx: 0, dy: -Metrics.headerHeight))
+        syncHover()
+    }
+
+    /// 内容变化或滚动后鼠标没动，也按当前位置重新算悬停的格子
+    private func syncHover() {
+        guard let window, window.isVisible else { return setHovered(nil) }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        setHovered(visibleRect.contains(point) ? tileIndex(at: point) : nil)
+    }
+
+    private func tileIndex(at point: NSPoint) -> Int? {
+        (0..<items.count).first { tiles[$0].frame.contains(point) }
+    }
+
+    private func setHovered(_ index: Int?) {
+        if let hoveredIndex, hoveredIndex != index, tiles.indices.contains(hoveredIndex) {
+            tiles[hoveredIndex].isHovered = false
+        }
+        hoveredIndex = index
+        if let index { tiles[index].isHovered = true }
     }
 
     private func activate(index: Int) {
@@ -231,8 +276,9 @@ final class ResultTileView: NSView {
     private let subtitleLabel = NSTextField(labelWithString: "")
     private enum Style { case tile, answer, row }
     private var style = Style.tile
-    private var hoverTrackingArea: NSTrackingArea?
-    private var isHovered = false {
+
+    /// 由 ResultsGridView 统一设置
+    var isHovered = false {
         didSet { if isHovered != oldValue { needsDisplay = true } }
     }
 
@@ -267,7 +313,6 @@ final class ResultTileView: NSView {
     override var mouseDownCanMoveWindow: Bool { false }
 
     func configure(name: String, icon: NSImage?) {
-        isHovered = false
         style = .tile
         nameLabel.stringValue = name
         nameLabel.font = .systemFont(ofSize: 12)
@@ -281,7 +326,6 @@ final class ResultTileView: NSView {
 
     /// 整行卡片：左边图标，副标题在上、结果大字在下
     func configure(answer: BuiltinAnswer, icon: NSImage?) {
-        isHovered = false
         style = .answer
         nameLabel.stringValue = answer.title
         nameLabel.font = .systemFont(ofSize: 24, weight: .medium)
@@ -296,7 +340,6 @@ final class ResultTileView: NSView {
 
     /// 紧凑列表行：小图标，标题和副标题在同一行
     func configure(row title: String, subtitle: String?, icon: NSImage?) {
-        isHovered = false
         style = .row
         nameLabel.stringValue = title
         nameLabel.font = .systemFont(ofSize: 13, weight: .medium)
@@ -334,23 +377,6 @@ final class ResultTileView: NSView {
             nameLabel.frame = NSRect(x: 4, y: 56, width: bounds.width - 8, height: 16)
         }
     }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
-        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        hoverTrackingArea = area
-        // 搜索和滚动会移动复用的格子，同步鼠标当前位置，避免残留高亮。
-        if !isHidden, let window, window.isVisible {
-            isHovered = visibleRect.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
-        } else {
-            isHovered = false
-        }
-    }
-
-    override func mouseEntered(with event: NSEvent) { isHovered = !isHidden }
-    override func mouseExited(with event: NSEvent) { isHovered = false }
 
     override func draw(_ dirtyRect: NSRect) {
         guard isSelected || isHovered else { return }

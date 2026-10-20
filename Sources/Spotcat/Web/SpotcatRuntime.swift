@@ -88,6 +88,12 @@ enum SpotcatRuntime {
 
             ai: Object.freeze({
               info: (o = {}) => call('ai.info', { model: o.model }),
+              models: () => call('ai.models'),
+              // 在 anchor 元素下方弹出 Spotcat 的模型菜单，返回 "服务商 id/模型 id"；includeDefault 时可选「跟随默认模型」（返回 ''），取消返回 null
+              pickModel({ anchor, current, includeDefault } = {}) {
+                const rect = anchor?.getBoundingClientRect?.() || { left: 0, bottom: 0 };
+                return call('ai.pickModel', { x: rect.left, y: rect.bottom + 4, current: current || '', includeDefault: Boolean(includeDefault) });
+              },
               chat({ messages, model, onDelta, signal } = {}) {
                 const id = ++seq;
                 if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));

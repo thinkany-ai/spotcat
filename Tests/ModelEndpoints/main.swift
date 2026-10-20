@@ -5,6 +5,10 @@ enum AppEnvironment {
     static var dataDirectory: URL { fatalError("Model endpoint tests must not access persisted settings") }
 }
 
+enum L10n {
+    static func t(_ key: String, _ args: CVarArg...) -> String { key }
+}
+
 struct EndpointCase {
     let name: String
     let kind: ModelProvider.Kind
@@ -56,7 +60,7 @@ for id in ["zhipu-coding", "zhipu"] {
         continue
     }
     let provider = ModelProvider(id: "fixture", name: preset.label, kind: preset.kind, apiBase: preset.apiBase, apiKey: "", models: [preset.model])
-    if preset.kind == .openai && !preset.model.isEmpty && provider.endpoint?.absoluteString == preset.apiBase + "/chat/completions" {
+    if preset.kind == .openai && !preset.model.id.isEmpty && provider.endpoint?.absoluteString == preset.apiBase + "/chat/completions" {
         print("PASS: \(id) preset")
     } else {
         failures += 1

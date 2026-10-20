@@ -440,18 +440,7 @@ final class SettingsStore: ObservableObject {
 
     /// 服务商或模型变化后，保证默认模型仍然存在；否则改用第一个模型
     func normalizeDefaultModel() {
-        let all = models.providers.flatMap { provider in provider.models.map { "\(provider.id)/\($0)" } }
-        if !all.contains(models.defaultModel) { models.defaultModel = all.first ?? "" }
-    }
-
-    @discardableResult
-    func addModelProvider() -> String {
-        let preset = ModelsConfig.presets[0]
-        let provider = ModelProvider(id: UUID().uuidString, name: preset.label, kind: preset.kind,
-                                     apiBase: preset.apiBase, apiKey: "", models: [preset.model])
-        models.providers.insert(provider, at: 0)
-        normalizeDefaultModel()
-        return provider.id
+        models.normalizeDefault()
     }
 
     func removeModelProvider(_ id: String) {

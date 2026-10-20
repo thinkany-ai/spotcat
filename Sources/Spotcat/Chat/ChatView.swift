@@ -202,64 +202,16 @@ final class ChatView: NSView {
 
     // MARK: - 切换模型
 
-    /// 在页面给的位置（按钮左下角，页面坐标）弹出原生菜单：服务商 › 模型。返回选中的 "服务商 id/模型名"，取消时为 nil
+    /// 在页面给的位置（按钮左上角，页面坐标）弹出模型菜单。返回选中的 "服务商 id/模型 id"，取消时为 nil
     private func pickModel(_ args: [String: Any], reply: @escaping WebBridge.Reply) {
-        let config = SettingsStore.shared.models
-        let current = config.resolve(args["current"] as? String).map { "\($0.provider.id)/\($0.model)" }
-        let picker = ModelMenuTarget()
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-
-        for provider in config.providers where !provider.models.isEmpty {
-            let item = NSMenuItem(title: provider.name, action: nil, keyEquivalent: "")
-            let submenu = NSMenu()
-            submenu.autoenablesItems = false
-            for model in provider.models {
-                let id = "\(provider.id)/\(model)"
-                let modelItem = NSMenuItem(title: model, action: #selector(ModelMenuTarget.pick(_:)), keyEquivalent: "")
-                modelItem.target = picker
-                modelItem.representedObject = id
-                modelItem.state = id == current ? .on : .off
-                modelItem.isEnabled = provider.hasKey
-                submenu.addItem(modelItem)
-            }
-            item.submenu = submenu
-            if current?.hasPrefix(provider.id + "/") == true { item.state = .on }
-            if !provider.hasKey {
-                item.title = provider.name + " — " + L10n.t("chat.model.noKey")
-            }
-            menu.addItem(item)
-        }
-        if !menu.items.isEmpty { menu.addItem(.separator()) }
-        let manage = NSMenuItem(title: L10n.t("chat.model.manage"), action: #selector(ModelMenuTarget.manage(_:)), keyEquivalent: "")
-        manage.target = picker
-        menu.addItem(manage)
-
-        let x = (args["x"] as? Double) ?? 0
-        let y = (args["y"] as? Double) ?? 0
-        let point = NSPoint(x: x, y: webView.isFlipped ? y : webView.bounds.height - y)
-        menu.popUp(positioning: args["above"] as? Bool == true ? menu.items.last : nil, at: point, in: webView)
-
-        switch picker.result {
+        let point = NSPoint(x: (args["x"] as? Double) ?? 0, y: (args["y"] as? Double) ?? 0)
+        let options = ModelMenu.Options(current: args["current"] as? String, includeManage: true)
+        switch ModelMenu.popUp(in: webView, at: point, above: args["above"] as? Bool == true, options: options) {
         case .model(let id): reply(id, nil)
         case .manage:
             reply(nil, nil)
             (NSApp.delegate as? AppDelegate)?.showSettings(tab: .ai)
-        case nil: reply(nil, nil)
+        case .followDefault, nil: reply(nil, nil)
         }
-    }
-}
-
-/// NSMenu 的 action 需要一个 NSObject target；popUp 返回前 action 已经执行，结果存在这里
-private final class ModelMenuTarget: NSObject {
-    enum Result { case model(String), manage }
-    var result: Result?
-
-    @objc func pick(_ sender: NSMenuItem) {
-        if let id = sender.representedObject as? String { result = .model(id) }
-    }
-
-    @objc func manage(_ sender: NSMenuItem) {
-        result = .manage
     }
 }

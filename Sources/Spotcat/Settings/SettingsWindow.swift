@@ -40,15 +40,46 @@ final class SettingsNavigation: ObservableObject {
     @Published var expandedExtensions: Set<String> = []
     /// 快捷链接页正在编辑的条目
     @Published var editingQuicklink: String?
-    /// 模型页正在编辑的服务商，以及它的测试结果
-    @Published var editingProvider: String?
-    /// 编辑中的模型列表原文（一行一个），完成或测试时才解析
-    @Published var modelsDraft = ""
+    /// 模型页：弹框里正在添加或编辑的服务商（副本，点「添加」「完成」且校验通过才写回，取消就丢弃），以及测试结果
+    @Published var isEditingProvider = false
+    @Published var providerDraft = ProviderDraft()
     @Published var providerTest: ProviderTest?
     /// 扩展页：已安装 / 插件市场
     @Published var extensionsPage: ExtensionsSettingsView.Page = .installed
     /// 等待确认卸载的扩展 id
     @Published var uninstallingExtension: String?
+
+    struct ModelRow: Identifiable, Equatable {
+        let id = UUID()
+        var modelID: String
+        var title: String
+
+        var entry: ModelEntry {
+            ModelEntry(id: modelID.trimmingCharacters(in: .whitespaces), title: title.trimmingCharacters(in: .whitespaces))
+        }
+    }
+
+    struct ProviderDraft: Equatable {
+        /// 名称、格式、地址、Key 等直接编辑这份副本；id 和模型在下面单独编辑
+        var provider = ModelProvider(id: "", name: "", kind: .anthropic, apiBase: "", apiKey: "", models: [])
+        /// 编辑的是哪个已有服务商；nil 表示新添加
+        var originalID: String?
+        var providerID = ""
+        /// 新添加的服务商：选预设时 id 跟着变，直到用户自己改过
+        var isNew: Bool { originalID == nil }
+        var idEdited = false
+        var models: [ModelRow] = []
+        var error: String?
+
+        /// 空行不算
+        var entries: [ModelEntry] {
+            models.map(\.entry).filter { !($0.id.isEmpty && $0.title.isEmpty) }
+        }
+
+        mutating func setModels(_ entries: [ModelEntry]) {
+            models = (entries.isEmpty ? [ModelEntry(id: "")] : entries).map { ModelRow(modelID: $0.id, title: $0.title) }
+        }
+    }
 
     enum ProviderTest: Equatable {
         case running
